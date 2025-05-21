@@ -54,12 +54,6 @@ import com.hitsuthar.june.viewModels.DDLViewModel
 import com.hitsuthar.june.viewModels.SelectedVideoViewModel
 import com.hitsuthar.june.viewModels.Stream
 
-sealed class DDLResponseState {
-    data object Loading : DDLResponseState()
-    data class Success(val data: List<DDLStream>?) : DDLResponseState()
-    data class Error(val message: String) : DDLResponseState()
-    data object Empty : DDLResponseState()
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
