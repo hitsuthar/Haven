@@ -211,7 +211,7 @@ fun ShowDetailContent(
                 .fillMaxWidth()
                 .aspectRatio(16 / 9f)
         )
-        LazyColumn() {
+        LazyColumn {
             item {
                 BackdropSection(detail, logo)
             }
