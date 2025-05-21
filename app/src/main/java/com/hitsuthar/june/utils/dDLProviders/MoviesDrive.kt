@@ -54,8 +54,8 @@ suspend fun getMoviesDriveDDL(
                         val ddlDocument = Jsoup.parse(fetcher.fetchWithRetries(link))
 
                         ddlStreams.add(
-                            ddlDocument.select("a").firstOrNull { element ->
-                                element.attr("href").contains("hubcloud", ignoreCase = true)
+                            ddlDocument.select("a").firstOrNull { aElement ->
+                                aElement.attr("href").contains("hubcloud", ignoreCase = true)
                             }?.attr("href")?.let { Extractor().getHubCloudUrl(it, fetcher) }!!
                         )
                     }.toList()
@@ -108,8 +108,8 @@ suspend fun getMoviesDriveDDL(
                                 ?.html()?.contains("Season-$season", true) == true
                         ) {
                             println("mdrive: $link")
-                            val hubCloud = ddlDocument.firstOrNull { element ->
-                                element.html()
+                            val hubCloud = ddlDocument.firstOrNull { elementHubCloud ->
+                                elementHubCloud.html()
                                     .contains(
                                         "hubcloud",
                                         ignoreCase = true

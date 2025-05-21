@@ -1,10 +1,12 @@
 package com.hitsuthar.june.utils
 
+import android.annotation.SuppressLint
 import kotlinx.datetime.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.TemporalAccessor
 
+@SuppressLint("DefaultLocale")
 fun formatBytes(bytes: Long): String {
     val kb = 1024.0
     val mb = kb * 1024
@@ -23,6 +25,7 @@ fun getFormattedDate(date: LocalDate?): String {
     val formattedDate: TemporalAccessor = inputFormatter.parse(date.toString())
     return outputFormatter.format(formattedDate)
 }
+@SuppressLint("DefaultLocale")
 fun getFormatedTime(milliseconds: Long): String {
     val seconds = (milliseconds / 1000) % 60
     val minutes = (milliseconds / (1000 * 60)) % 60
