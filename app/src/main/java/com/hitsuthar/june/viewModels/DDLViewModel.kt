@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.utils.dDLProviders.DDLProviders
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,6 +18,7 @@ sealed class DDLState {
         val loadingProviders: List<String>,
         val failedProviders: Map<String, String>
     ) : DDLState()
+
     data class Error(val message: String) : DDLState()
 }
 
@@ -53,8 +55,8 @@ class DDLViewModel : ViewModel() {
 
             loadingProviders.addAll(DDLProviders.map { it.name })
 
-            DDLProviders.map { provider ->
-                launch {
+            DDLProviders.parallelStream().map { provider ->
+                async {
                     try {
                         val result = when (contentDetail) {
                             is ContentDetail.Movie -> {
@@ -64,8 +66,7 @@ class DDLViewModel : ViewModel() {
                             is ContentDetail.Show -> {
                                 contentDetail.tmdbEpisode?.let { episode ->
                                     provider.fetchShowsStreams(
-                                        contentDetail.tmdbShowDetail,
-                                        episode
+                                        contentDetail.tmdbShowDetail, episode
                                     )
                                 } ?: Result.failure(Throwable("No episode data available"))
                             }
@@ -84,10 +85,9 @@ class DDLViewModel : ViewModel() {
                                 if (_selectedProvider.value == null) {
                                     selectProvider(provider.name)
                                 }
-                            }
+                            } else failedProviders[provider.name] = "Not Found"
                         } else {
-                            failedProviders[provider.name] =
-                                result.exceptionOrNull()?.message ?: "Unknown error"
+                            failedProviders[provider.name] = "Not Found"
                         }
                         updateState()
                     } catch (e: Exception) {
@@ -96,23 +96,27 @@ class DDLViewModel : ViewModel() {
                         updateState()
                     }
                 }
-            }
+            }.toList()
         }
     }
 
     private fun updateState() {
         _state.value = when {
-            cachedProvidersData.isNotEmpty() -> DDLState.PartialSuccess(
-                availableProviders = cachedProvidersData.keys.toList(),
-                loadingProviders = loadingProviders.toList(),
-                failedProviders = failedProviders
-            )
+            cachedProvidersData.isNotEmpty() -> {
+//                Log.d("DDLViewModel", "failedProvider $failedProviders")
+
+                DDLState.PartialSuccess(
+                    availableProviders = cachedProvidersData.keys.toList(),
+                    loadingProviders = loadingProviders.toList(),
+                    failedProviders = failedProviders
+                )
+            }
 
             loadingProviders.isNotEmpty() -> DDLState.Loading
+
             else -> DDLState.Error(
-                "All providers failed:\n${
-                    failedProviders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
-                }"
+                "No links found :("
+//                failedProviders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
             )
         }
     }

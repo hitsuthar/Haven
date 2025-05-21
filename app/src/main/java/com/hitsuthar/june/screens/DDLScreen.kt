@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,7 +33,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,15 +71,12 @@ fun DDLScreen(
     innersPadding: PaddingValues,
     ddlViewModel: DDLViewModel
 ) {
-    val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
     var showBottomSheet by rememberSaveable { mutableStateOf(false) }
     val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
     val currentStreams by ddlViewModel.currentStreams.collectAsState()
     val ddlState by ddlViewModel.state.collectAsState()
 
-    LaunchedEffect(contentDetail) {
-        contentDetail.let { ddlViewModel.fetchAllProviders(it) }
-    }
+
 
 
     Column(
@@ -120,12 +115,19 @@ fun DDLScreen(
                     DDLState.Loading -> {
                         // Show loading providers
                         Column {
-                            Text("Loading providers...", Modifier.padding(16.dp))
+                            Text(
+                                "Loading providers...",
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                            )
                             DDLProviders.forEach { provider ->
-                                Text(
-                                    provider.name,
-                                    Modifier.padding(16.dp)
+                                ProviderItem(
+                                    provider = provider.name,
+                                    isLoading = true,
+                                    onClick = {}
                                 )
+                                HorizontalDivider()
+
                             }
                         }
                     }
@@ -165,7 +167,7 @@ fun DDLScreen(
                                         isLoading = true,
                                         onClick = {}
                                     )
-                                    Divider()
+                                    HorizontalDivider()
                                 }
                             }
                             // Failed providers
@@ -183,7 +185,7 @@ fun DDLScreen(
                                         errorMessage = error,
                                         onClick = {}
                                     )
-                                    Divider()
+                                    HorizontalDivider()
                                 }
                             }
                         }
@@ -256,7 +258,25 @@ private fun ProviderItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(provider)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    provider,
+                    color = if (isError) MaterialTheme.colorScheme.error else TextStyle.Default.color
+                )
+//                if (isError && errorMessage != null) {
+//                    Text(
+//                        "($errorMessage)",
+//                        style = MaterialTheme.typography.labelSmall,
+//                        color = MaterialTheme.colorScheme.error,
+//                        modifier = Modifier
+//                            .padding(top = 4.dp)
+//                            .fillMaxWidth()
+//                    )
+//                }
+            }
 
             when {
                 isSelected -> Icon(Icons.Default.Check, contentDescription = "Selected")
@@ -269,18 +289,9 @@ private fun ProviderItem(
             }
         }
 
-        if (isError && errorMessage != null) {
-            Text(
-                errorMessage,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .fillMaxWidth()
-            )
-        }
+
     }
-    Divider()
+    HorizontalDivider()
 }
 
 @Composable

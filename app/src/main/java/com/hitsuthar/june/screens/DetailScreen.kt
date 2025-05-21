@@ -1,7 +1,9 @@
 package com.hitsuthar.june.screens
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ScrollableTabRow
@@ -36,7 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,22 +64,23 @@ import com.hitsuthar.june.Screen
 import com.hitsuthar.june.components.ErrorMessage
 import com.hitsuthar.june.components.LoadingIndicator
 import com.hitsuthar.june.utils.TmdbRepository
-import com.hitsuthar.june.utils.dDLProviders.getMoviesDriveDDL
 import com.hitsuthar.june.utils.getFormattedDate
 import com.hitsuthar.june.viewModels.ContentDetail
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
+import com.hitsuthar.june.viewModels.DDLViewModel
 import com.hitsuthar.june.viewModels.SelectedVideoViewModel
-import com.hitsuthar.june.viewModels.Stream
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.minutes
 
 
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun DetailScreen(
     navController: NavController,
     repository: TmdbRepository,
     contentDetailViewModel: ContentDetailViewModel,
-    selectedVideoViewModel: SelectedVideoViewModel
+    selectedVideoViewModel: SelectedVideoViewModel,
+    ddlViewModel: DDLViewModel
 ) {
     val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
 
@@ -91,6 +92,9 @@ fun DetailScreen(
                 navController = navController,
                 selectedVideoViewModel = selectedVideoViewModel
             )
+            LaunchedEffect(contentDetail) {
+                contentDetail.let { ddlViewModel.fetchAllProviders(it) }
+            }
         }
 
         is ContentDetail.Show -> {
@@ -125,7 +129,6 @@ fun MovieDetailContent(
             ?: detail.tmdbMovieDetail.images?.logos?.first()
     }
 //    var ytsData: List<TorrentStream> by remember { mutableStateOf(emptyList()) }
-
 
 
     Log.d("detail", detail.tmdbMovieDetail.toString())
@@ -237,7 +240,8 @@ fun ShowDetailContent(
                         modifier = Modifier.height(32.dp),
                     ) {
                         seasons.forEachIndexed { index, season ->
-                            Tab(selected = tabIndex == index,
+                            Tab(
+                                selected = tabIndex == index,
                                 selectedContentColor = MaterialTheme.colorScheme.onBackground,
                                 unselectedContentColor = MaterialTheme.colorScheme.onBackground,
                                 onClick = {

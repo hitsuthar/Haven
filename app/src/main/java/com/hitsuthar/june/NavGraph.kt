@@ -2,8 +2,10 @@ package com.hitsuthar.june
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.core.view.WindowInsetsControllerCompat
@@ -29,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @SuppressLint("CoroutineCreationDuringComposition", "HardwareIds")
 @Composable
 fun SetupNavGraph(
@@ -87,7 +90,8 @@ fun SetupNavGraph(
                 navController = navController,
                 repository = repository,
                 contentDetailViewModel = contentDetailViewModel,
-                selectedVideoViewModel = selectedVideoViewModel
+                selectedVideoViewModel = selectedVideoViewModel,
+                ddlViewModel = ddlViewModel
             )
         }
         composable(Screen.DDL.route) {

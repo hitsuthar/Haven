@@ -62,4 +62,20 @@ val DDLProviders = listOf(
             fetcher = fetcher
         )
     }),
+    DDLProvider("Rog Movies", { tmdbMovieDetail ->
+        getRogMoviesDDL(
+            title = tmdbMovieDetail.title,
+            year = tmdbMovieDetail.releaseDate?.year,
+            type = "movie",
+            fetcher = fetcher
+        )
+    }, { tmdbShowDetail, tmdbEpisode ->
+        getRogMoviesDDL(
+            title = tmdbShowDetail.name,
+            type = "tv",
+            season = tmdbEpisode.seasonNumber,
+            episode = tmdbEpisode.episodeNumber,
+            fetcher = fetcher
+        )
+    }),
 )

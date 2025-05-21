@@ -34,3 +34,7 @@ fun getFormatedTime(milliseconds: Long): String {
         String.format("%02d:%02d", minutes, seconds)
     }
 }
+
+fun formattedQuery(query: String): String {
+    return query.trim().replace(" ", "+")
+}

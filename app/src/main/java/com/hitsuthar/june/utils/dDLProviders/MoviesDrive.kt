@@ -5,22 +5,15 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.utils.DocumentFetcher
-import com.hitsuthar.june.utils.getHubCloudUrl
+import com.hitsuthar.june.utils.formattedQuery
 import com.hitsuthar.junescrapper.extractors.Extractor
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import retrofit2.Response
 
 suspend fun moviesDriveSearch(query: String, fetcher: DocumentFetcher): List<String> {
     val baseUrl = "https://moviesdrive.solutions"
-    val formattedQuery = query.trim().replace(" ", "+")
-    val searchUrl = "$baseUrl/?s=$formattedQuery"
+    val searchUrl = "$baseUrl/?s=${formattedQuery(query)}"
 
     return withContext(Dispatchers.IO) {
         try {
@@ -36,7 +29,12 @@ suspend fun moviesDriveSearch(query: String, fetcher: DocumentFetcher): List<Str
 
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 suspend fun getMoviesDriveDDL(
-    title: String, year: Int? = null, type: String, season: Int? = null, episode: Int? = null, fetcher: DocumentFetcher
+    title: String,
+    year: Int? = null,
+    type: String,
+    season: Int? = null,
+    episode: Int? = null,
+    fetcher: DocumentFetcher
 ): Result<List<DDLStream>> = withContext(Dispatchers.IO) {
     try {
         val searchQuery = if (type == "movie") "${title.trim().replace(" ", "+")}+$year"
@@ -47,7 +45,7 @@ suspend fun getMoviesDriveDDL(
 
         val ddlStreams = mutableListOf<DDLStream>()
 
-        searchResultUrls.forEach { url ->
+        searchResultUrls.parallelStream().map { url ->
             if (type == "movie") {
                 Jsoup.parse(fetcher.fetchWithRetries(url)).select("h5 a").parallelStream()
                     .map { element ->
@@ -138,12 +136,9 @@ suspend fun getMoviesDriveDDL(
                 }.toList()
             }
 
-        }
-        if (ddlStreams.isEmpty()) {
-            Result.failure(NoStreamsException("No working streams found"))
-        } else {
-            Result.success(ddlStreams)
-        }
+        }.toList()
+
+        Result.success(ddlStreams)
     } catch (e: Exception) {
         Log.e("HTTP_ERROR", "Failed to fetch page", e)
         Result.failure(e)
