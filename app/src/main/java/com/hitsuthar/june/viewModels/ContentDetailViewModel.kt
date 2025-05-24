@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.moviebase.tmdb.model.TmdbEpisode
+import app.moviebase.tmdb.model.TmdbEpisodeDetail
 import app.moviebase.tmdb.model.TmdbMovieDetail
 import app.moviebase.tmdb.model.TmdbShowDetail
 import com.hitsuthar.june.utils.TmdbRepository
@@ -18,6 +19,9 @@ sealed class ContentDetail {
     data class Show(val tmdbShowDetail: TmdbShowDetail, var tmdbEpisode: TmdbEpisode?) :
         ContentDetail()
 
+    data class Episode(val contentId: Int?, val tmdbEpisodeDetail: TmdbEpisodeDetail) :
+        ContentDetail()
+
     object Loading : ContentDetail()
     object Error : ContentDetail()
 }
@@ -26,10 +30,13 @@ class ContentDetailViewModel : ViewModel() {
     private val _contentDetail = MutableStateFlow<ContentDetail>(ContentDetail.Loading)
     val contentDetail: StateFlow<ContentDetail> = _contentDetail.asStateFlow()
 
+
     fun setContentDetail(
-        contentId: Int?,
-        contentType: String? = null,
+        contentId: Int? = null,
+        episodeId: Int? = null,
+        contentType: String?,
         repository: TmdbRepository,
+        tmdbEpisode: TmdbEpisode? = null
     ) {
         viewModelScope.launch {
             _contentDetail.update { ContentDetail.Loading }
@@ -47,6 +54,15 @@ class ContentDetailViewModel : ViewModel() {
                             repository.getShowDetail(contentId), null
                         )
 
+                        "episode" -> ContentDetail.Episode(
+                            contentId,
+                            repository.getShowEpisodeDetail(
+                                contentId,
+                                tmdbEpisode?.seasonNumber!!,
+                                tmdbEpisode.episodeNumber
+                            )
+                        )
+
                         else -> ContentDetail.Error
                     }
                 }
@@ -57,16 +73,3 @@ class ContentDetailViewModel : ViewModel() {
         }
     }
 }
-
-//    private val _contentDetail = mutableStateOf<ContentDetail>(ContentDetail.Loading)
-//    val contentDetail: State<ContentDetail> get() = _contentDetail
-//
-//    init {
-//        viewModelScope.launch {
-//            _contentDetail.value = when (contentType) {
-//                "movie" -> ContentDetail.Movie(repository.getMovieDetail(contentId!!))
-//                "tv" -> ContentDetail.Show(repository.getShowDetail(contentId!!), null)
-//                else -> ContentDetail.Error
-//            }
-//        }
-//    }

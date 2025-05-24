@@ -59,207 +59,206 @@ import com.hitsuthar.june.viewModels.Stream
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun DDLScreen(
-    contentDetailViewModel: ContentDetailViewModel,
-    navController: NavController,
-    selectedVideo: SelectedVideoViewModel,
-    innersPadding: PaddingValues,
-    ddlViewModel: DDLViewModel
+  navController: NavController,
+  selectedVideo: SelectedVideoViewModel,
+  innersPadding: PaddingValues,
+  ddlViewModel: DDLViewModel
 ) {
-    var showBottomSheet by rememberSaveable { mutableStateOf(false) }
-    val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
-    val currentStreams by ddlViewModel.currentStreams.collectAsState()
-    val ddlState by ddlViewModel.state.collectAsState()
+  var showBottomSheet by rememberSaveable { mutableStateOf(false) }
+  val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
+  val currentStreams by ddlViewModel.currentStreams.collectAsState()
+  val ddlState by ddlViewModel.state.collectAsState()
 
-
-
-
-    Column(
-        modifier = Modifier.padding(
-            top = innersPadding.calculateTopPadding(),
-        )
+  Column(
+    modifier = Modifier.padding(
+      top = innersPadding.calculateTopPadding(),
+    )
+  ) {
+    Box(
+      Modifier
+          .background(color = MaterialTheme.colorScheme.background)
+          .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+          .fillMaxWidth()
     ) {
-        Box(
-            Modifier
-                .background(color = MaterialTheme.colorScheme.background)
-                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-                .fillMaxWidth()
+      Row(
+        horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()
+      ) {
+        Text(
+          "Select Provider: ",
+          style = MaterialTheme.typography.bodyLarge,
+          color = MaterialTheme.colorScheme.onBackground,
+          modifier = Modifier.align(Alignment.CenterVertically)
+        )
+        OutlinedButton(
+          onClick = { showBottomSheet = true }, shape = RoundedCornerShape(16.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    "Select Provider: ",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.align(Alignment.CenterVertically)
-                )
-                OutlinedButton(
-                    onClick = { showBottomSheet = true }, shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        selectedProvider ?: "Select", style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
+          Text(
+            selectedProvider ?: "Select", style = MaterialTheme.typography.bodyLarge
+          )
         }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
-                when (ddlState) {
-                    DDLState.Loading -> {
-                        // Show loading providers
-                        Column {
-                            Text(
-                                "Loading providers...",
-                                style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-                            )
-                            DDLProviders.forEach { provider ->
-                                ProviderItem(
-                                    provider = provider.name,
-                                    isLoading = true,
-                                    onClick = {}
-                                )
-                                HorizontalDivider()
-
-                            }
-                        }
-                    }
-
-                    is DDLState.PartialSuccess -> {
-                        val state = ddlState as DDLState.PartialSuccess
-                        Column {
-                            // Available providers section
-                            if (state.availableProviders.isNotEmpty()) {
-                                Text(
-                                    "Available:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-                                )
-                                state.availableProviders.forEach { provider ->
-                                    ProviderItem(
-                                        provider = provider,
-                                        isSelected = provider == selectedProvider,
-                                        onClick = {
-                                            ddlViewModel.selectProvider(provider)
-                                            showBottomSheet = false
-                                        }
-                                    )
-                                    HorizontalDivider()
-                                }
-                            }
-                            // Loading providers
-                            if (state.loadingProviders.isNotEmpty()) {
-                                Text(
-                                    "Loading:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-                                )
-                                state.loadingProviders.forEach { provider ->
-                                    ProviderItem(
-                                        provider = provider,
-                                        isLoading = true,
-                                        onClick = {}
-                                    )
-                                    HorizontalDivider()
-                                }
-                            }
-                            // Failed providers
-                            if (state.failedProviders.isNotEmpty()) {
-                                Text(
-                                    "Failed:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-                                )
-                                state.failedProviders.forEach { (provider, error) ->
-                                    ProviderItem(
-                                        provider = provider,
-                                        isError = true,
-                                        errorMessage = error,
-                                        onClick = {}
-                                    )
-                                    HorizontalDivider()
-                                }
-                            }
-                        }
-                    }
-
-                    is DDLState.Error -> {
-                        // Show error state
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                "Failed to load providers",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                (ddlState as DDLState.Error).message,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Content area
-        when {
-            currentStreams.isNotEmpty() -> {
-                LazyColumn {
-                    items(currentStreams) { stream ->
-                        DDLButton(
-                            item = stream,
-                            navController = navController,
-                            selectedVideo = selectedVideo
-                        )
-
-                    }
-                    item { Spacer(Modifier.height(innersPadding.calculateBottomPadding())) }
-                }
-            }
-
-            selectedProvider != null -> {
-                ErrorMessage(message = "No streams found for $selectedProvider")
-            }
-
-            ddlState is DDLState.Error -> {
-                ErrorMessage(message = (ddlState as DDLState.Error).message)
-            }
-
-            else -> LoadingIndicator()
-        }
+      }
     }
+
+    if (showBottomSheet) {
+      ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
+        when (ddlState) {
+          DDLState.Loading -> {
+            // Show loading providers
+            Column {
+              Text(
+                "Loading providers...",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+              )
+              DDLProviders.forEach { provider ->
+                ProviderItem(
+                  provider = provider.name,
+                  isLoading = true,
+                  onClick = {}
+                )
+                HorizontalDivider()
+
+              }
+            }
+          }
+
+          is DDLState.PartialSuccess -> {
+            val state = ddlState as DDLState.PartialSuccess
+            Column {
+              // Available providers section
+              if (state.availableProviders.isNotEmpty()) {
+                Text(
+                  "Available:",
+                  style = MaterialTheme.typography.labelMedium,
+                  modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                )
+                state.availableProviders.forEach { provider ->
+                  ProviderItem(
+                    provider = provider,
+                    isSelected = provider == selectedProvider,
+                    onClick = {
+                      ddlViewModel.selectProvider(provider)
+                      showBottomSheet = false
+                    }
+                  )
+                  HorizontalDivider()
+                }
+              }
+              // Loading providers
+              if (state.loadingProviders.isNotEmpty()) {
+                Text(
+                  "Loading:",
+                  style = MaterialTheme.typography.labelMedium,
+                  modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                )
+                state.loadingProviders.forEach { provider ->
+                  ProviderItem(
+                    provider = provider,
+                    isLoading = true,
+                    onClick = {}
+                  )
+                  HorizontalDivider()
+                }
+              }
+              // Failed providers
+              if (state.failedProviders.isNotEmpty()) {
+                Text(
+                  "Failed:",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = MaterialTheme.colorScheme.error,
+                  modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                )
+                state.failedProviders.forEach { (provider, error) ->
+                  ProviderItem(
+                    provider = provider,
+                    isError = true,
+                    errorMessage = error,
+                    onClick = {}
+                  )
+                  HorizontalDivider()
+                }
+              }
+            }
+          }
+
+          is DDLState.Error -> {
+            // Show error state
+            Column(Modifier.padding(16.dp)) {
+              Text(
+                "Failed to load providers",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error
+              )
+              Text(
+                (ddlState as DDLState.Error).message,
+                style = MaterialTheme.typography.bodyMedium
+              )
+            }
+          }
+        }
+      }
+    }
+
+    // Content area
+    when {
+      currentStreams.isNotEmpty() -> {
+        Column {
+          currentStreams.forEach { stream ->
+            DDLButton(
+              item = stream,
+              navController = navController,
+              selectedVideo = selectedVideo
+            )
+
+          }
+//                    items(currentStreams) {
+//
+//                    }
+          Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
+        }
+      }
+
+      selectedProvider != null -> {
+        ErrorMessage(message = "No streams found for $selectedProvider")
+      }
+
+      ddlState is DDLState.Error -> {
+        ErrorMessage(message = (ddlState as DDLState.Error).message)
+      }
+
+      else -> LoadingIndicator()
+    }
+  }
 }
 
 @Composable
 private fun ProviderItem(
-    provider: String,
-    isSelected: Boolean = false,
-    isLoading: Boolean = false,
-    isError: Boolean = false,
-    errorMessage: String? = null,
-    onClick: () -> Unit
+  provider: String,
+  isSelected: Boolean = false,
+  isLoading: Boolean = false,
+  isError: Boolean = false,
+  errorMessage: String? = null,
+  onClick: () -> Unit
 ) {
-    Box(
-        Modifier
-            .clickable(enabled = !isLoading && !isError, onClick = onClick)
-            .padding(16.dp)
-            .fillMaxWidth()
+  Box(
+    Modifier
+        .clickable(enabled = !isLoading && !isError, onClick = onClick)
+        .padding(16.dp)
+        .fillMaxWidth()
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+      modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    provider,
-                    color = if (isError) MaterialTheme.colorScheme.error else TextStyle.Default.color
-                )
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          provider,
+          color = if (isError) MaterialTheme.colorScheme.error else TextStyle.Default.color
+        )
 //                if (isError && errorMessage != null) {
 //                    Text(
 //                        "($errorMessage)",
@@ -270,60 +269,60 @@ private fun ProviderItem(
 //                            .fillMaxWidth()
 //                    )
 //                }
-            }
+      }
 
-            when {
-                isSelected -> Icon(Icons.Default.Check, contentDescription = "Selected")
-                isLoading -> CircularProgressIndicator(Modifier.size(20.dp))
-                isError -> Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Error",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-
-
+      when {
+        isSelected -> Icon(Icons.Default.Check, contentDescription = "Selected")
+        isLoading -> CircularProgressIndicator(Modifier.size(20.dp))
+        isError -> Icon(
+          Icons.Default.Close,
+          contentDescription = "Error",
+          tint = MaterialTheme.colorScheme.error
+        )
+      }
     }
-    HorizontalDivider()
+
+
+  }
+  HorizontalDivider()
 }
 
 @Composable
 fun DDLButton(
-    item: DDLStream, navController: NavController, selectedVideo: SelectedVideoViewModel
+  item: DDLStream, navController: NavController, selectedVideo: SelectedVideoViewModel
 ) {
-    Box(Modifier.background(color = MaterialTheme.colorScheme.background)) {
-        Button(
-            onClick = {
-                selectedVideo.setSelectedVideo(Stream.DDL(item))
-                navController.navigate(route = Screen.VideoPlayer.route)
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 16.dp),
-            contentPadding = PaddingValues(8.dp)
-        ) {
-            Icon(
-                Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = buildString {
-                    append(item.name)
-                    if (item.size != null) {
-                        append("\n").append("💾").append(item.size)
-                    }
-                },
-                style = TextStyle(
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    fontWeight = FontWeight.Light
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+  Box(Modifier.background(color = MaterialTheme.colorScheme.background)) {
+    Button(
+      onClick = {
+        selectedVideo.setSelectedVideo(Stream.DDL(item))
+        navController.navigate(route = Screen.VideoPlayer.route)
+      },
+      colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+      shape = RoundedCornerShape(16.dp),
+      modifier = Modifier
+          .fillMaxWidth()
+          .padding(vertical = 8.dp, horizontal = 16.dp),
+      contentPadding = PaddingValues(8.dp)
+    ) {
+      Icon(
+        Icons.Default.PlayArrow,
+        contentDescription = "Play",
+        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+      )
+      Spacer(Modifier.width(8.dp))
+      Text(
+        text = buildString {
+          append(item.name)
+          if (item.size != null) {
+            append("\n").append("💾").append(item.size)
+          }
+        },
+        style = TextStyle(
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
+          fontWeight = FontWeight.Light
+        ),
+        modifier = Modifier.fillMaxWidth(),
+      )
     }
+  }
 }

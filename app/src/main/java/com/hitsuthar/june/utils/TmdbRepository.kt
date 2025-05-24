@@ -148,7 +148,7 @@ class TmdbRepository(tbdApiKey: String) {
             showId = showId,
             seasonNumber = seasonNumber,
             episodeNumber = episodeNumber,
-            appendResponses = listOf(AppendResponse.EXTERNAL_IDS)
+            appendResponses = listOf(AppendResponse.EXTERNAL_IDS),
         )
     }
 

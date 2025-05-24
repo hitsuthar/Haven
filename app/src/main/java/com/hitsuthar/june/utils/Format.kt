@@ -1,6 +1,7 @@
 package com.hitsuthar.june.utils
 
 import android.annotation.SuppressLint
+import android.util.Log
 import kotlinx.datetime.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -39,5 +40,5 @@ fun getFormatedTime(milliseconds: Long): String {
 }
 
 fun formattedQuery(query: String): String {
-    return query.trim().replace(" ", "+")
+    return query.trim().replace(Regex("[^A-Za-z0-9]"), "+")
 }

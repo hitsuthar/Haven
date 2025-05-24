@@ -91,12 +91,12 @@ fun SetupNavGraph(
                 repository = repository,
                 contentDetailViewModel = contentDetailViewModel,
                 selectedVideoViewModel = selectedVideoViewModel,
-                ddlViewModel = ddlViewModel
+                ddlViewModel = ddlViewModel,
+                innersPadding = innersPadding
             )
         }
         composable(Screen.DDL.route) {
             DDLScreen(
-                contentDetailViewModel = contentDetailViewModel,
                 navController = navController,
                 selectedVideo = selectedVideoViewModel,
                 innersPadding = innersPadding,

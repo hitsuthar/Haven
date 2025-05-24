@@ -1,5 +1,5 @@
 [versions]
-agp = "8.8.1"
+agp = "8.10.0"
 coilCompose = "2.7.0"
 converterGson = "2.11.0"
 core = "6.0.0"
@@ -15,6 +15,7 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 kotlinStdlib = "2.1.20-RC"
 kotlinxCoroutinesAndroid = "1.10.1"
+kotlinxSerializationJson = "1.8.1"
 libvlcAll = "3.5.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.0"
@@ -72,6 +73,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlinStdlib" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 libvlc-all = { module = "org.videolan.android:libvlc-all", version.ref = "libvlcAll" }
 androidx-navigation-runtime-ktx = { group = "androidx.navigation", name = "navigation-runtime-ktx", version.ref = "navigationRuntimeKtx" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
