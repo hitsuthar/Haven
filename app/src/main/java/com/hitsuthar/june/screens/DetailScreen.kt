@@ -27,14 +27,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,9 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.moviebase.tmdb.model.TmdbEpisode
 import app.moviebase.tmdb.model.TmdbFileImage
-import app.moviebase.tmdb.model.TmdbMovie
 import app.moviebase.tmdb.model.TmdbSeason
-import app.moviebase.tmdb.model.TmdbShow
 import coil.compose.rememberAsyncImagePainter
 import com.hitsuthar.june.BACKDROP_BASE_URL
 import com.hitsuthar.june.LOGO_BASE_URL
@@ -177,6 +173,32 @@ fun EpisodeDetailContent(
         Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
       }
     }
+  }
+}
+
+sealed class MediaContent {
+  abstract val streams: List<DDLStream>
+
+  data class Movie(
+    override val streams: List<DDLStream>
+  ) : MediaContent()
+
+  data class TvSeries(
+    val seasons: List<Season>
+  ) : MediaContent() {
+    override val streams: List<DDLStream>
+      get() = seasons.flatMap { it.episodes.flatMap { it1 -> it1.streams } }
+
+    data class Season(
+      val number: Int,
+      val episodes: List<Episode>
+    )
+
+    data class Episode(
+      val number: Int,
+      val title: String? = null,
+      val streams: List<DDLStream>
+    )
   }
 }
 

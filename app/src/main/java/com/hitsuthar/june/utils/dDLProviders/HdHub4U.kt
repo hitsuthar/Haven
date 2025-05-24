@@ -1,7 +1,5 @@
 package com.hitsuthar.june.utils.dDLProviders
 
-import android.system.Os.link
-import android.util.Base64
 import android.util.Log
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.utils.DocumentFetcher
@@ -9,10 +7,10 @@ import com.hitsuthar.june.utils.formattedQuery
 import com.hitsuthar.june.utils.hdHub4UUrl
 import com.hitsuthar.junescrapper.extractors.Extractor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Element
 
 
 suspend fun hdHub4USearch(query: String, fetcher: DocumentFetcher): List<String> {
@@ -44,49 +42,51 @@ suspend fun getHdHub4UDDL(
       else title.trim().replace(" ", "+"), fetcher
     )
     if (searchResultUrls.isEmpty()) return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
-    val ddlStreams: MutableList<DDLStream> = emptyList<DDLStream>().toMutableList()
+    val ddlStreams = mutableListOf<DDLStream>()
 
     try {
       if (type == "movie") {
         searchResultUrls.map { result ->
           Jsoup.parse(fetcher.fetchWithRetries(result)).select("main h3 a[href], main h4 a[href]")
             .map { link ->
-              val quality: String = link.text().trim()
-              val url: String = link.attr("href")
-              Log.d("HDHUB4U", "$quality → $url")
-              if (url.contains("techyboy", true)) {
-                val extractedTechyBoyUrl = Extractor().getTechyBoy(url, fetcher)
-                if (extractedTechyBoyUrl != null && extractedTechyBoyUrl.contains("hblink")) {
-                  Jsoup.parse(fetcher.fetchWithRetries(extractedTechyBoyUrl))
-                    .select("div.entry-content a").map { aHbLink ->
-                      if (aHbLink.attr("href").contains("hubdrive", true)) {
-                        val hubCloud = Jsoup.parse(fetcher.fetchWithRetries(aHbLink.attr("href")))
-                          .select("div a[href]").firstOrNull { aElemet ->
-                            aElemet.attr("href").contains("hubcloud", true)
-                          }?.attr("href")
-                        if (hubCloud != null) {
-                          val hubDrive = Extractor().getHubCloudUrl(hubCloud, fetcher)
-                          if (hubDrive != null) {
-                            ddlStreams.add(hubDrive)
+              async {
+                val quality: String = link.text().trim()
+                val url: String = link.attr("href")
+                Log.d("HDHUB4U", "$quality → $url")
+                if (url.contains("techyboy", true)) {
+                  val extractedTechyBoyUrl = Extractor().getTechyBoy(url, fetcher)
+                  if (extractedTechyBoyUrl != null && extractedTechyBoyUrl.contains("hblink")) {
+                    Jsoup.parse(fetcher.fetchWithRetries(extractedTechyBoyUrl))
+                      .select("div.entry-content a").map { aHbLink ->
+                        if (aHbLink.attr("href").contains("hubdrive", true)) {
+                          val hubCloud = Jsoup.parse(fetcher.fetchWithRetries(aHbLink.attr("href")))
+                            .select("div a[href]").firstOrNull { aElemet ->
+                              aElemet.attr("href").contains("hubcloud", true)
+                            }?.attr("href")
+                          if (hubCloud != null) {
+                            val hubDrive = Extractor().getHubCloudUrl(hubCloud, fetcher)
+                            if (hubDrive != null) {
+                              ddlStreams.add(hubDrive)
+                            }
                           }
                         }
                       }
+                  }
+                } else if (url.contains("hubdrive", true)) {
+                  val hubDrive = Jsoup.parse(fetcher.fetchWithRetries(url))
+                    .select("div a[href]").firstOrNull { aElemet ->
+                      aElemet.attr("href").contains("hubcloud", true)
+                    }?.attr("href")
+                  if (hubDrive != null) {
+                    Extractor().getHubCloudUrl(hubDrive, fetcher)?.let { stream ->
+                      synchronized(ddlStreams) {  // Thread-safe addition
+                        ddlStreams.add(stream)
+                      }
                     }
-                }
-              } else if (url.contains("hubdrive", true)) {
-                val hubDrive = Jsoup.parse(fetcher.fetchWithRetries(url))
-                  .select("div a[href]").firstOrNull { aElemet ->
-                    aElemet.attr("href").contains("hubcloud", true)
-                  }?.attr("href")
-                if (hubDrive != null) {
-                  val hubCloud = Extractor().getHubCloudUrl(hubDrive, fetcher)
-                  Log.d("HDHUB4U", "hubCloud: $hubCloud")
-                  if (hubCloud != null) {
-                    ddlStreams.add(hubCloud)
                   }
                 }
               }
-            }
+            }.awaitAll()
         }
       } else if (type == "tv") {
 

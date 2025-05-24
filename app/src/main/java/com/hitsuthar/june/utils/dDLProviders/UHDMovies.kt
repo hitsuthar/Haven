@@ -3,10 +3,10 @@ package com.hitsuthar.june.utils.dDLProviders
 import android.util.Log
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.utils.DocumentFetcher
+import com.hitsuthar.june.utils.extractors.getDriveLeech
 import com.hitsuthar.june.utils.extractors.getUnblockedGames
 import com.hitsuthar.june.utils.formattedQuery
 import com.hitsuthar.june.utils.uHDMoviesUrl
-import com.hitsuthar.june.utils.extractors.getDriveLeech
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -42,7 +42,7 @@ suspend fun getUHDMoviesDDL(
     )
 
     if (searchResultUrls.isEmpty()) return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
-    val ddlStreams: MutableList<DDLStream> = emptyList<DDLStream>().toMutableList()
+    val ddlStreams = mutableListOf<DDLStream>()
 
     searchResultUrls.map {
         val document = Jsoup.parse(fetcher.fetchWithRetries(it))
