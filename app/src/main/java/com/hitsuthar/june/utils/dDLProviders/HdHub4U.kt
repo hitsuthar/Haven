@@ -2,6 +2,7 @@ package com.hitsuthar.june.utils.dDLProviders
 
 import android.util.Log
 import com.hitsuthar.june.screens.DDLStream
+import com.hitsuthar.june.screens.MediaContent
 import com.hitsuthar.june.utils.DocumentFetcher
 import com.hitsuthar.june.utils.formattedQuery
 import com.hitsuthar.june.utils.hdHub4UUrl
@@ -35,20 +36,36 @@ suspend fun getHdHub4UDDL(
   season: Int? = null,
   episode: Int? = null,
   fetcher: DocumentFetcher
-): Result<List<DDLStream>> = withContext(Dispatchers.IO) {
+): Result<MediaContent> = withContext(Dispatchers.IO) {
   try {
     val searchResultUrls = hdHub4USearch(
       if (type == "movie") "${title.trim().replace(" ", "+")}+$year"
       else title.trim().replace(" ", "+"), fetcher
     )
     if (searchResultUrls.isEmpty()) return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
-    val ddlStreams = mutableListOf<DDLStream>()
 
-    try {
-      if (type == "movie") {
-        searchResultUrls.map { result ->
-          Jsoup.parse(fetcher.fetchWithRetries(result)).select("main h3 a[href], main h4 a[href]")
-            .map { link ->
+    return@withContext when (type) {
+      "movie" -> fetchMovieContent(searchResultUrls, fetcher)
+      else -> fetchTvContent(searchResultUrls, season, episode, fetcher)
+    }
+  } catch (e: Exception) {
+    println(e)
+    Result.failure(e)
+  }
+}
+
+
+private suspend fun fetchMovieContent(
+  urls: List<String>, fetcher: DocumentFetcher
+): Result<MediaContent.Movie> = withContext(Dispatchers.IO) {
+  val ddlStreams = mutableListOf<DDLStream>()
+
+  try {
+    urls.map { resultUrl ->
+      async {
+        try {
+          Jsoup.parse(fetcher.fetchWithRetries(resultUrl))
+            .select("main h3 a[href], main h4 a[href]").map { link ->
               async {
                 val quality: String = link.text().trim()
                 val url: String = link.attr("href")
@@ -59,22 +76,20 @@ suspend fun getHdHub4UDDL(
                     Jsoup.parse(fetcher.fetchWithRetries(extractedTechyBoyUrl))
                       .select("div.entry-content a").map { aHbLink ->
                         if (aHbLink.attr("href").contains("hubdrive", true)) {
-                          val hubCloud = Jsoup.parse(fetcher.fetchWithRetries(aHbLink.attr("href")))
+                          Jsoup.parse(fetcher.fetchWithRetries(aHbLink.attr("href")))
                             .select("div a[href]").firstOrNull { aElemet ->
                               aElemet.attr("href").contains("hubcloud", true)
-                            }?.attr("href")
-                          if (hubCloud != null) {
-                            val hubDrive = Extractor().getHubCloudUrl(hubCloud, fetcher)
-                            if (hubDrive != null) {
-                              ddlStreams.add(hubDrive)
+                            }?.attr("href")?.let { hubCloudUrl ->
+                              Extractor().getHubCloudUrl(hubCloudUrl, fetcher)?.let { hubDriveUrl ->
+                                ddlStreams.add(hubDriveUrl)
+                              }
                             }
-                          }
                         }
                       }
                   }
                 } else if (url.contains("hubdrive", true)) {
-                  val hubDrive = Jsoup.parse(fetcher.fetchWithRetries(url))
-                    .select("div a[href]").firstOrNull { aElemet ->
+                  val hubDrive = Jsoup.parse(fetcher.fetchWithRetries(url)).select("div a[href]")
+                    .firstOrNull { aElemet ->
                       aElemet.attr("href").contains("hubcloud", true)
                     }?.attr("href")
                   if (hubDrive != null) {
@@ -87,20 +102,60 @@ suspend fun getHdHub4UDDL(
                 }
               }
             }.awaitAll()
+        } catch (e: Exception) {
+          Log.e("MovieContent", "Error processing movie URL", e)
         }
-      } else if (type == "tv") {
-
       }
+    }.awaitAll()
 
-
-    } catch (e: Exception) {
-      Log.e("HDHUB4U", e.message.toString())
-      Result.success(ddlStreams)
+    if (ddlStreams.isNotEmpty()) {
+      Result.success(MediaContent.Movie(ddlStreams))
+    } else {
+      Result.failure(NoResultsException("No streams found for movie"))
     }
-    Result.success(ddlStreams)
-
   } catch (e: Exception) {
-    Log.e("HDHUB4U", e.message.toString())
+    Result.failure(e)
+  }
+}
+
+
+private suspend fun fetchTvContent(
+  urls: List<String>, season: Int?, episode: Int?, fetcher: DocumentFetcher
+): Result<MediaContent.TvSeries> = withContext(Dispatchers.IO) {
+
+  val episodesMap = mutableMapOf<Int, MutableList<DDLStream>>() // episode number to streams
+
+  try {
+    urls.map { url ->
+      async {
+        try {
+
+        } catch (e: Exception) {
+          Log.e("TvContent", "Error processing TV URL", e)
+        }
+      }
+    }.awaitAll()
+
+    val episodes = episodesMap.map { (episodeNum, streams) ->
+      MediaContent.TvSeries.Episode(
+        number = episodeNum, streams = streams
+      )
+    }
+
+    if (episodes.isNotEmpty()) {
+      Result.success(
+        MediaContent.TvSeries(
+          seasons = listOf(
+            MediaContent.TvSeries.Season(
+              number = season!!, episodes = episodes
+            )
+          )
+        )
+      )
+    } else {
+      Result.failure(NoResultsException("No streams found for season $season episode $episode"))
+    }
+  } catch (e: Exception) {
     Result.failure(e)
   }
 }

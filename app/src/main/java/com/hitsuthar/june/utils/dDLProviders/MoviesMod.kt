@@ -44,8 +44,8 @@ suspend fun getMoviesModDDL(
 ): Result<MediaContent> = withContext(Dispatchers.IO) {
   try {
     val searchResultUrls = moviesModSearch(
-      if (type == "movie") "${title.trim().replace(" ", "+")}+$year"
-      else title.trim().replace(" ", "+"), fetcher
+      if (type == "movie") "$title $year"
+      else title, fetcher
     )
     if (searchResultUrls.isEmpty()) return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
     return@withContext when (type) {
@@ -69,25 +69,27 @@ private suspend fun fetchMovieContent(
     urls.map { url ->
       async {
         try {
-          Jsoup.parse(fetcher.fetchWithRetries(url)).select("p a.maxbutton-1").forEach { element ->
-            val link =
-              """[?&]url=([^&]+)""".toRegex().find(element.attr("href"))?.groupValues?.get(1)
-                ?.let { Base64.Default.decode(it).decodeToString() }
+          Jsoup.parse(fetcher.fetchWithRetries(url)).select("p a.maxbutton-1").map { element ->
+            async {
+              val link =
+                """[?&]url=([^&]+)""".toRegex().find(element.attr("href"))?.groupValues?.get(1)
+                  ?.let { Base64.Default.decode(it).decodeToString() }
 
-            link?.let {
-              val ddlDocument = Jsoup.parse(fetcher.fetchWithRetries(it))
-              val ubGamesLink = ddlDocument.select("a.maxbutton-fast-server-gdrive").attr("href")
-              val newUrl = getUnblockedGames(ubGamesLink, fetcher)
+              link?.let {
+                val ddlDocument = Jsoup.parse(fetcher.fetchWithRetries(it))
+                val ubGamesLink = ddlDocument.select("a.maxbutton-fast-server-gdrive").attr("href")
+                val newUrl = getUnblockedGames(ubGamesLink, fetcher)
 
-              if (newUrl != null && newUrl.contains("driveseed")) {
-                getDriveSeed(newUrl, fetcher)?.let { stream ->
-                  synchronized(ddlStreams) {
-                    ddlStreams.add(stream)
+                if (newUrl != null && newUrl.contains("driveseed")) {
+                  getDriveSeed(newUrl, fetcher)?.let { stream ->
+                    synchronized(ddlStreams) {
+                      ddlStreams.add(stream)
+                    }
                   }
                 }
               }
             }
-          }
+          }.awaitAll()
         } catch (e: Exception) {
           Log.e("MovieContent", "Error processing movie URL", e)
         }

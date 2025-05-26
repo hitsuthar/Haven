@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -48,7 +46,6 @@ import com.hitsuthar.june.Screen
 import com.hitsuthar.june.components.ErrorMessage
 import com.hitsuthar.june.components.LoadingIndicator
 import com.hitsuthar.june.utils.dDLProviders.DDLProviders
-import com.hitsuthar.june.viewModels.ContentDetailViewModel
 import com.hitsuthar.june.viewModels.DDLState
 import com.hitsuthar.june.viewModels.DDLViewModel
 import com.hitsuthar.june.viewModels.SelectedVideoViewModel
@@ -201,9 +198,9 @@ fun DDLScreen(
 
     // Content area
     when {
-      currentStreams.isNotEmpty() -> {
+      currentStreams?.streams?.isNotEmpty() == true -> {
         Column {
-          currentStreams.forEach { stream ->
+          currentStreams!!.streams.forEach { stream ->
             DDLButton(
               item = stream,
               navController = navController,

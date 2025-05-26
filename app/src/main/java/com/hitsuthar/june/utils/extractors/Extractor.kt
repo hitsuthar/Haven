@@ -15,7 +15,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import java.net.URLEncoder
 
 @Serializable
@@ -120,7 +119,7 @@ class Extractor {
         Log.d("getHDMovie", "postResponse: $postResponse")
         postResponse
       } catch (e: Exception) {
-        Log.e("getHDMovies", e.message.toString())
+        Log.e("getHDMovies", e.toString())
         null
       }
     }
