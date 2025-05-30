@@ -1,7 +1,6 @@
 package com.hitsuthar.june.screens
 
-import android.os.Build
-import androidx.annotation.RequiresApi
+import MovieSyncViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,14 +52,15 @@ import com.hitsuthar.june.viewModels.Stream
 
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun DDLScreen(
   navController: NavController,
   selectedVideo: SelectedVideoViewModel,
   innersPadding: PaddingValues,
-  ddlViewModel: DDLViewModel
-) {
+  ddlViewModel: DDLViewModel,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
   var showBottomSheet by rememberSaveable { mutableStateOf(false) }
   val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
   val currentStreams by ddlViewModel.currentStreams.collectAsState()
@@ -73,9 +73,9 @@ fun DDLScreen(
   ) {
     Box(
       Modifier
-          .background(color = MaterialTheme.colorScheme.background)
-          .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-          .fillMaxWidth()
+        .background(color = MaterialTheme.colorScheme.background)
+        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+        .fillMaxWidth()
     ) {
       Row(
         horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()
@@ -109,10 +109,7 @@ fun DDLScreen(
               )
               DDLProviders.forEach { provider ->
                 ProviderItem(
-                  provider = provider.name,
-                  isLoading = true,
-                  onClick = {}
-                )
+                  provider = provider.name, isLoading = true, onClick = {})
                 HorizontalDivider()
 
               }
@@ -131,13 +128,10 @@ fun DDLScreen(
                 )
                 state.availableProviders.forEach { provider ->
                   ProviderItem(
-                    provider = provider,
-                    isSelected = provider == selectedProvider,
-                    onClick = {
+                    provider = provider, isSelected = provider == selectedProvider, onClick = {
                       ddlViewModel.selectProvider(provider)
                       showBottomSheet = false
-                    }
-                  )
+                    })
                   HorizontalDivider()
                 }
               }
@@ -150,10 +144,7 @@ fun DDLScreen(
                 )
                 state.loadingProviders.forEach { provider ->
                   ProviderItem(
-                    provider = provider,
-                    isLoading = true,
-                    onClick = {}
-                  )
+                    provider = provider, isLoading = true, onClick = {})
                   HorizontalDivider()
                 }
               }
@@ -167,11 +158,7 @@ fun DDLScreen(
                 )
                 state.failedProviders.forEach { (provider, error) ->
                   ProviderItem(
-                    provider = provider,
-                    isError = true,
-                    errorMessage = error,
-                    onClick = {}
-                  )
+                    provider = provider, isError = true, errorMessage = error, onClick = {})
                   HorizontalDivider()
                 }
               }
@@ -187,8 +174,7 @@ fun DDLScreen(
                 color = MaterialTheme.colorScheme.error
               )
               Text(
-                (ddlState as DDLState.Error).message,
-                style = MaterialTheme.typography.bodyMedium
+                (ddlState as DDLState.Error).message, style = MaterialTheme.typography.bodyMedium
               )
             }
           }
@@ -204,13 +190,13 @@ fun DDLScreen(
             DDLButton(
               item = stream,
               navController = navController,
-              selectedVideo = selectedVideo
-            )
+              selectedVideo = selectedVideo,
+              movieSyncViewModel = movieSyncViewModel,
+
+
+              )
 
           }
-//                    items(currentStreams) {
-//
-//                    }
           Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
         }
       }
@@ -239,9 +225,9 @@ private fun ProviderItem(
 ) {
   Box(
     Modifier
-        .clickable(enabled = !isLoading && !isError, onClick = onClick)
-        .padding(16.dp)
-        .fillMaxWidth()
+      .clickable(enabled = !isLoading && !isError, onClick = onClick)
+      .padding(16.dp)
+      .fillMaxWidth()
   ) {
     Row(
       verticalAlignment = Alignment.CenterVertically,
@@ -272,9 +258,7 @@ private fun ProviderItem(
         isSelected -> Icon(Icons.Default.Check, contentDescription = "Selected")
         isLoading -> CircularProgressIndicator(Modifier.size(20.dp))
         isError -> Icon(
-          Icons.Default.Close,
-          contentDescription = "Error",
-          tint = MaterialTheme.colorScheme.error
+          Icons.Default.Close, contentDescription = "Error", tint = MaterialTheme.colorScheme.error
         )
       }
     }
@@ -286,19 +270,30 @@ private fun ProviderItem(
 
 @Composable
 fun DDLButton(
-  item: DDLStream, navController: NavController, selectedVideo: SelectedVideoViewModel
-) {
+  item: DDLStream,
+  navController: NavController,
+  selectedVideo: SelectedVideoViewModel,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
+  val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
+
   Box(Modifier.background(color = MaterialTheme.colorScheme.background)) {
     Button(
       onClick = {
-        selectedVideo.setSelectedVideo(Stream.DDL(item))
-        navController.navigate(route = Screen.VideoPlayer.route)
+        if (currentRoom == null){
+          selectedVideo.setSelectedVideo(Stream.DDL(item))
+          navController.navigate(route = Screen.VideoPlayer.route)
+        }else{
+          movieSyncViewModel.updateCurrentMovie(MovieSyncViewModel.Movie(title = item.name, url = item.url))
+          navController.navigate(route = Screen.Party.route)
+        }
       },
       colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
       shape = RoundedCornerShape(16.dp),
       modifier = Modifier
-          .fillMaxWidth()
-          .padding(vertical = 8.dp, horizontal = 16.dp),
+        .fillMaxWidth()
+        .padding(vertical = 8.dp, horizontal = 16.dp),
       contentPadding = PaddingValues(8.dp)
     ) {
       Icon(
@@ -315,8 +310,7 @@ fun DDLButton(
           }
         },
         style = TextStyle(
-          color = MaterialTheme.colorScheme.onSecondaryContainer,
-          fontWeight = FontWeight.Light
+          color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Light
         ),
         modifier = Modifier.fillMaxWidth(),
       )

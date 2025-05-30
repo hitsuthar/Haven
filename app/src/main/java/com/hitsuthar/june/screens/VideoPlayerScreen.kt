@@ -1,9 +1,9 @@
 package com.hitsuthar.june.screens
 
+import MovieSyncViewModel
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -65,6 +65,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavController
@@ -89,591 +90,608 @@ import org.videolan.libvlc.util.VLCVideoLayout
 @SuppressLint("SourceLockedOrientationActivity", "StateFlowValueCalledInComposition")
 @Composable
 fun VideoPlayerScreen(
-    modifier: Modifier = Modifier,
-    navController: NavController,
-    window: WindowInsetsControllerCompat,
-    selectedVideo: SelectedVideoViewModel,
-    watchPartyViewModel: WatchPartyViewModel,
-    context: Context,
-    innersPadding: PaddingValues,
-    videoPlayerViewModel: VideoPlayerViewModel,
-    contentDetailViewModel: ContentDetailViewModel
-) {
-//    val context = LocalContext.current
-    val activity = LocalActivity.current
-    val libVLC = remember { LibVLC(context) }
-    val mediaPlayer = remember { MediaPlayer(libVLC) }
-    val video = selectedVideo.selectedVideo.collectAsState()
-    val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
+  modifier: Modifier = Modifier,
+  navController: NavController,
+  window: WindowInsetsControllerCompat,
+  selectedVideo: SelectedVideoViewModel,
+  watchPartyViewModel: WatchPartyViewModel,
+  context: Context,
+  innersPadding: PaddingValues,
+  videoPlayerViewModel: VideoPlayerViewModel,
+  contentDetailViewModel: ContentDetailViewModel,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
+  val vlcOptions = ArrayList<String>().apply {
+    add("--network-caching=1500") // Medium buffer for streaming
+    add("--clock-jitter=0")
+    add("--clock-synchro=0")
+    add("--drop-late-frames")
+    add("--skip-frames")
+    add("--avcodec-fast")
+  }
+  val activity = LocalActivity.current
+  val libVLC = remember { LibVLC(context, vlcOptions) }
+  val mediaPlayer = remember { MediaPlayer(libVLC) }
+  val video = selectedVideo.selectedVideo.collectAsState()
+  val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
+  val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
+
+//  val vlcPlayerHolder = remember { VlcPlayerHolder(context) }
 
 //    Log.d("VideoPlayerScreen", "VideoPlayerScreen: ${video}")
-    val totalDuration = videoPlayerViewModel.totalDuration.collectAsState().value
-    val isPlaying = videoPlayerViewModel.isPlaying.collectAsState().value
-    val currentDuration = videoPlayerViewModel.currentDuration.collectAsState().value
-    val audioTracks = videoPlayerViewModel.audioTracks.collectAsState().value
-    val selectedAudioTrack = videoPlayerViewModel.selectedAudioTrack.collectAsState().value
-    val subtitleTracks = videoPlayerViewModel.subtitleTracks.collectAsState().value
-    val selectedSubtitleTrack = videoPlayerViewModel.selectedSubtitleTrack.collectAsState().value
-    val videoUrl = videoPlayerViewModel.videoUrl.collectAsState().value
-    val isLoading = videoPlayerViewModel.isLoading.collectAsState().value
-    val isFullScreen = videoPlayerViewModel.isFullScreen.collectAsState().value
+  val totalDuration = videoPlayerViewModel.totalDuration.collectAsState().value
+  val isPlaying = videoPlayerViewModel.isPlaying.collectAsState().value
+  val currentDuration = videoPlayerViewModel.currentDuration.collectAsState().value
+  val audioTracks = videoPlayerViewModel.audioTracks.collectAsState().value
+  val selectedAudioTrack = videoPlayerViewModel.selectedAudioTrack.collectAsState().value
+  val subtitleTracks = videoPlayerViewModel.subtitleTracks.collectAsState().value
+  val selectedSubtitleTrack = videoPlayerViewModel.selectedSubtitleTrack.collectAsState().value
+  val videoUrl = videoPlayerViewModel.videoUrl.collectAsState().value
+  val isLoading = videoPlayerViewModel.isLoading.collectAsState().value
+  val isFullScreen = videoPlayerViewModel.isFullScreen.collectAsState().value
 
-    val partyID = SharedPreferencesManager(context.applicationContext).getData("PARTY_ID", "")
+  val partyID = SharedPreferencesManager(context.applicationContext).getData("PARTY_ID", "")
 
-    LaunchedEffect(Unit, watchPartyViewModel.isPlaying.value) {
+  LaunchedEffect(Unit, watchPartyViewModel.isPlaying.value) {
 //        Log.d(
 //            "VideoPlayerScreen",
 //            "LaunchedEffect: currentDuration = $currentDuration, isPlaying = $isPlaying"
 //        )
-        mediaPlayer.time = watchPartyViewModel.currentTime.value
-        if (watchPartyViewModel.isPlaying.value) mediaPlayer.play() else mediaPlayer.pause()
-    }
+    mediaPlayer.time = watchPartyViewModel.currentTime.value
+    if (watchPartyViewModel.isPlaying.value) mediaPlayer.play() else mediaPlayer.pause()
+  }
 
-    LaunchedEffect((currentDuration / 1000) % 60, isPlaying) {
-        watchPartyViewModel.updatePlayback(currentDuration, isPlaying, partyID)
-    }
+//  LaunchedEffect((currentDuration / 1000) % 60, isPlaying) {
+//    watchPartyViewModel.updatePlayback(currentDuration, isPlaying, partyID)
+//  }
 
-    LaunchedEffect(isFullScreen) {
-        if (isFullScreen) {
-            window.hide(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        } else {
-            window.show(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+  LaunchedEffect(isFullScreen) {
+    if (isFullScreen) {
+      window.hide(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
+      activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    } else {
+      window.show(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
+      activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
+  }
+
+//  Log.d("VideoPlayerScreen", "LaunchedEffect: video = ${video.value}") // Log inside LaunchedEffect
+  if (currentRoom != null) {
+    LaunchedEffect(Unit, movieSyncViewModel.currentMovie.value) {
+      Log.d("VideoplayerScreen", "launchEffect: ${movieSyncViewModel.currentMovie.value}")
+      if (movieSyncViewModel.currentMovie.value?.url != null) {
+        videoPlayerViewModel.setVideoUrl(movieSyncViewModel.currentMovie.value?.url)
+        mediaPlayer.stop()
+        mediaPlayer.media =
+          Media(libVLC, movieSyncViewModel.currentMovie.value?.url!!.toUri()).apply {
+            setHWDecoderEnabled(true, false)
+            addOption(":network-caching=1500")
+            addOption(":file-caching=1500")
+          }
+        if (isPlaying) mediaPlayer.play()
+//        vlcPlayerHolder.playNewUrl(movieSyncViewModel.currentMovie.value?.url!!)
+      }
+      videoPlayerViewModel.setLoading(false)
+    }
+  } else {
     LaunchedEffect(video.value) {
-        Log.d("VideoPlayerScreen", "LaunchedEffect: video = $video") // Log inside LaunchedEffect
-        videoPlayerViewModel.setVideoUrl(
-            when (video.value) {
-                is Stream.DDL -> (video.value as Stream.DDL).ddlStream.url.replace(oldValue = " ", newValue = "%20")
+      videoPlayerViewModel.setVideoUrl(
+        when (video.value) {
+          is Stream.DDL -> (video.value as Stream.DDL).ddlStream.url.replace(
+            oldValue = " ", newValue = "%20"
+          )
 
-                is Stream.Torrent -> Uri.parse(TORRSERVER_BASE_URL).buildUpon().appendPath("stream")
-                    .appendQueryParameter(
-                        "link",
-                        (video.value as Stream.Torrent).torrentStream.magnet
-                            ?: (video.value as Stream.Torrent).torrentStream.infoHash
-                    )
-                    .appendQueryParameter(
-                        "index",
-                        ((video.value as Stream.Torrent).torrentStream.fileIndex).toString()
-                    )
-                    .appendQueryParameter("play", null).build().toString()
+          is Stream.Torrent -> TORRSERVER_BASE_URL.toUri().buildUpon().appendPath("stream")
+            .appendQueryParameter(
+              "link",
+              (video.value as Stream.Torrent).torrentStream.magnet
+                ?: (video.value as Stream.Torrent).torrentStream.infoHash
+            ).appendQueryParameter(
+              "index", ((video.value as Stream.Torrent).torrentStream.fileIndex).toString()
+            ).appendQueryParameter("play", null).build().toString()
 
-                else -> null
-            }
-
-
-        )
-        watchPartyViewModel.updateVideoUrl(videoUrl)
-        videoPlayerViewModel.setLoading(false)
+          else -> null
+        }
+      )
+//      watchPartyViewModel.updateVideoUrl(videoUrl)
+      videoPlayerViewModel.setLoading(false)
     }
+  }
 
-    DisposableEffect(Unit) {
+  DisposableEffect(Unit) {
 
-        mediaPlayer.setEventListener {
-            when (it.type) {
-                MediaPlayer.Event.ESAdded -> {
-                    // Fetch tracks after media is parsed
-                }
-
-                MediaPlayer.Event.Paused -> videoPlayerViewModel.pause()
-                MediaPlayer.Event.Playing -> videoPlayerViewModel.play()
-
-                MediaPlayer.Event.TimeChanged -> {
-                    videoPlayerViewModel.updateCurrentDuration(mediaPlayer.time)
-                    videoPlayerViewModel.updateTotalDuration(mediaPlayer.length)
-                    videoPlayerViewModel.updateAudioTracks(
-                        mediaPlayer.audioTracks.orEmpty().toList()
-                    )
-                    videoPlayerViewModel.updateSubtitleTracks(
-                        mediaPlayer.spuTracks.orEmpty().toList()
-                    )
-                }
-            }
+    mediaPlayer.setEventListener {
+      when (it.type) {
+        MediaPlayer.Event.ESAdded -> {
+          // Fetch tracks after media is parsed
         }
 
-        onDispose {
-            mediaPlayer.stop()
-            mediaPlayer.detachViews()
-            mediaPlayer.release()
-            libVLC.release()
-            window.show(WindowInsetsCompat.Type.navigationBars())
-            videoPlayerViewModel.reset()
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        MediaPlayer.Event.Paused -> videoPlayerViewModel.pause()
+        MediaPlayer.Event.Playing -> videoPlayerViewModel.play()
+
+        MediaPlayer.Event.TimeChanged -> {
+          videoPlayerViewModel.updateCurrentDuration(mediaPlayer.time)
+          videoPlayerViewModel.updateTotalDuration(mediaPlayer.length)
+          videoPlayerViewModel.updateAudioTracks(
+            mediaPlayer.audioTracks.orEmpty().toList()
+          )
+          videoPlayerViewModel.updateSubtitleTracks(
+            mediaPlayer.spuTracks.orEmpty().toList()
+          )
         }
+      }
     }
 
-    if (isLoading) {
-        // Show a loading indicator
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else if (videoUrl.isNotEmpty()) {
-        VideoPlayerComposable(
-            videoUrl = videoUrl,
-            mediaPlayer = mediaPlayer,
-            modifier = modifier,
-            onPlayPauseToggle = {
-                if (mediaPlayer.isPlaying) mediaPlayer.pause() else mediaPlayer.play()
-            },
-            onStop = {
-                mediaPlayer.stop()
-                videoPlayerViewModel.pause()
-            },
-            isPlaying = isPlaying,
-            currentDuration = currentDuration,
-            totalDuration = totalDuration,
-            onSeek = { position ->
-                mediaPlayer.time = position
-                videoPlayerViewModel.updateCurrentDuration(position)
-            },
-            audioTracks = audioTracks,
-            selectedAudioTrack = selectedAudioTrack,
-            onAudioTrackChange = { trackId ->
-                mediaPlayer.setAudioTrack(trackId)
-                videoPlayerViewModel.selectAudioTrack(trackId)
-            },
-            subtitleTracks = subtitleTracks,
-            selectedSubtitleTrack = selectedSubtitleTrack,
-            onSubtitleTrackChange = { trackId ->
-                mediaPlayer.setSpuTrack(trackId)
-                videoPlayerViewModel.selectSubtitleTrack(trackId)
-            },
-            navController = navController,
-            window = window,
-            isFullScreen = isFullScreen,
-            toggleFullScreen = { videoPlayerViewModel.toggleFullScreen() },
-            innersPadding = innersPadding,
-            contentDetail = contentDetail
-        )
+    onDispose {
+      mediaPlayer.stop()
+      mediaPlayer.detachViews()
+      mediaPlayer.release()
+      libVLC.release()
+      window.show(WindowInsetsCompat.Type.navigationBars())
+      videoPlayerViewModel.reset()
+      activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
+  }
+
+  if (isLoading) {
+    // Show a loading indicator
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      CircularProgressIndicator()
+    }
+  } else if (videoUrl != null) {
+    VideoPlayerComposable(
+      videoUrl = videoUrl,
+      mediaPlayer = mediaPlayer,
+      modifier = modifier,
+      onPlayPauseToggle = {
+        if (mediaPlayer.isPlaying) mediaPlayer.pause() else mediaPlayer.play()
+      },
+      onStop = {
+        mediaPlayer.stop()
+        videoPlayerViewModel.pause()
+      },
+      isPlaying = isPlaying,
+      currentDuration = currentDuration,
+      totalDuration = totalDuration,
+      onSeek = { position ->
+        mediaPlayer.time = position
+        videoPlayerViewModel.updateCurrentDuration(position)
+      },
+      audioTracks = audioTracks,
+      selectedAudioTrack = selectedAudioTrack,
+      onAudioTrackChange = { trackId ->
+        mediaPlayer.setAudioTrack(trackId)
+        videoPlayerViewModel.selectAudioTrack(trackId)
+      },
+      subtitleTracks = subtitleTracks,
+      selectedSubtitleTrack = selectedSubtitleTrack,
+      onSubtitleTrackChange = { trackId ->
+        mediaPlayer.setSpuTrack(trackId)
+        videoPlayerViewModel.selectSubtitleTrack(trackId)
+      },
+      navController = navController,
+      window = window,
+      isFullScreen = isFullScreen,
+      toggleFullScreen = { videoPlayerViewModel.toggleFullScreen() },
+      innersPadding = innersPadding,
+      contentDetail = contentDetail
+    )
+  }
 }
 
 @Composable
 fun VideoPlayerComposable(
-    videoUrl: String?,
-    mediaPlayer: MediaPlayer,
-    isPlaying: Boolean,
-    onPlayPauseToggle: () -> Unit,
-    onStop: () -> Unit,
-    modifier: Modifier = Modifier,
-    currentDuration: Long,
-    totalDuration: Long,
-    onSeek: (Long) -> Unit,
-    audioTracks: List<MediaPlayer.TrackDescription>,
-    selectedAudioTrack: Int,
-    onAudioTrackChange: (Int) -> Unit,
-    subtitleTracks: List<MediaPlayer.TrackDescription>,
-    selectedSubtitleTrack: Int,
-    onSubtitleTrackChange: (Int) -> Unit,
-    navController: NavController,
-    window: WindowInsetsControllerCompat,
-    isFullScreen: Boolean,
-    toggleFullScreen: () -> Unit,
-    innersPadding: PaddingValues,
-    contentDetail: ContentDetail
+  videoUrl: String?,
+  mediaPlayer: MediaPlayer,
+  isPlaying: Boolean,
+  onPlayPauseToggle: () -> Unit,
+  onStop: () -> Unit,
+  modifier: Modifier = Modifier,
+  currentDuration: Long,
+  totalDuration: Long,
+  onSeek: (Long) -> Unit,
+  audioTracks: List<MediaPlayer.TrackDescription>,
+  selectedAudioTrack: Int,
+  onAudioTrackChange: (Int) -> Unit,
+  subtitleTracks: List<MediaPlayer.TrackDescription>,
+  selectedSubtitleTrack: Int,
+  onSubtitleTrackChange: (Int) -> Unit,
+  navController: NavController,
+  window: WindowInsetsControllerCompat,
+  isFullScreen: Boolean,
+  toggleFullScreen: () -> Unit,
+  innersPadding: PaddingValues,
+  contentDetail: ContentDetail
 ) {
-    var controlsVisible by remember { mutableStateOf(true) }
-    val coroutineScope = rememberCoroutineScope()
-    var hideControlsJob by remember { mutableStateOf<Job?>(null) }
+  var controlsVisible by remember { mutableStateOf(true) }
+  val coroutineScope = rememberCoroutineScope()
+  var hideControlsJob by remember { mutableStateOf<Job?>(null) }
 
-    // Function to show controls and reset auto-hide timer
-    fun showControls() {
-        controlsVisible = true
-        hideControlsJob?.cancel() // Cancel any previous hide timer
-        if (isPlaying) {
-            hideControlsJob = coroutineScope.launch {
-                delay(5000) // Delay before auto-hiding
-                controlsVisible = false
+  // Function to show controls and reset auto-hide timer
+  fun showControls() {
+    controlsVisible = true
+    hideControlsJob?.cancel() // Cancel any previous hide timer
+    if (isPlaying) {
+      hideControlsJob = coroutineScope.launch {
+        delay(5000) // Delay before auto-hiding
+        controlsVisible = false
+      }
+    }
+  }
+
+  LaunchedEffect(controlsVisible, isFullScreen) {
+    if (!controlsVisible && isFullScreen) {
+      window.hide(WindowInsetsCompat.Type.systemBars())
+    } else window.show(WindowInsetsCompat.Type.systemBars())
+  }
+  // Show controls initially
+  LaunchedEffect(isPlaying, isFullScreen) { showControls() }
+  Column(
+    Modifier
+      .background(color = MaterialTheme.colorScheme.background)
+//            .fillMaxSize()
+      .padding(top = if (!isFullScreen) innersPadding.calculateTopPadding() else 0.dp)
+  ) {
+
+    Box(modifier = modifier
+      .pointerInput(Unit) {
+        detectTapGestures(onTap = {
+          if (!controlsVisible) showControls() else controlsVisible = false
+        })
+      }
+      .background(color = MaterialTheme.colorScheme.background)
+      .then(
+        if (isFullScreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16 / 9f)
+      )) {
+      AndroidView(
+        factory = { context ->
+          VLCVideoLayout(context).apply {
+            mediaPlayer.attachViews(this, null, false, false)
+            if (!videoUrl.isNullOrEmpty()) {
+              val media = Media(mediaPlayer.libVLC, videoUrl.toString().toUri())
+              mediaPlayer.media = media
+              if (!mediaPlayer.isPlaying) mediaPlayer.play()
             }
-        }
+          }
+        }, modifier = modifier.background(color = MaterialTheme.colorScheme.background)
+      )
+
+      ControlsOverlay(
+        visible = controlsVisible,
+        isPlaying = isPlaying,
+        currentDuration = currentDuration,
+        totalDuration = totalDuration,
+        audioTracks = audioTracks,
+        selectedAudioTrack = selectedAudioTrack,
+        subtitleTracks = subtitleTracks,
+        selectedSubtitleTrack = selectedSubtitleTrack,
+        onPlayPauseToggle = { onPlayPauseToggle(); showControls() },
+        onStop = onStop,
+        onSeek = { onSeek(it); showControls() },
+        onAudioTrackChange = onAudioTrackChange,
+        onSubtitleTrackChange = onSubtitleTrackChange,
+        showControls = { showControls() },
+        navController = navController,
+        isFullScreen = isFullScreen,
+        toggleFullScreen = { toggleFullScreen() },
+        contentDetail = contentDetail,
+        innersPadding = innersPadding
+      )
     }
-
-    LaunchedEffect(controlsVisible, isFullScreen) {
-        if (!controlsVisible && isFullScreen) {
-            window.hide(WindowInsetsCompat.Type.systemBars())
-        } else window.show(WindowInsetsCompat.Type.systemBars())
-    }
-    // Show controls initially
-    LaunchedEffect(isPlaying, isFullScreen) { showControls() }
-    Column(
-        Modifier
-            .background(color = MaterialTheme.colorScheme.background)
-            .fillMaxSize()
-            .padding(
-                top = if (!isFullScreen) innersPadding.calculateTopPadding() else 0.dp
-
-            )
-    ) {
-
-        Box(modifier = modifier
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    if (!controlsVisible) showControls() else controlsVisible = false
-                })
-            }
-            .background(color = MaterialTheme.colorScheme.background)
-            .then(
-                if (isFullScreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16 / 9f)
-            )) {
-            AndroidView(
-                factory = { context ->
-                    VLCVideoLayout(context).apply {
-                        mediaPlayer.attachViews(this, null, false, false)
-                        if (!videoUrl.isNullOrEmpty()) {
-                            val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl.toString()))
-                            mediaPlayer.media = media
-                            if (!mediaPlayer.isPlaying) mediaPlayer.play()
-                        }
-                    }
-                }, modifier = modifier.background(color = MaterialTheme.colorScheme.background)
-            )
-
-            ControlsOverlay(
-                visible = controlsVisible,
-                isPlaying = isPlaying,
-                currentDuration = currentDuration,
-                totalDuration = totalDuration,
-                audioTracks = audioTracks,
-                selectedAudioTrack = selectedAudioTrack,
-                subtitleTracks = subtitleTracks,
-                selectedSubtitleTrack = selectedSubtitleTrack,
-                onPlayPauseToggle = { onPlayPauseToggle(); showControls() },
-                onStop = onStop,
-                onSeek = { onSeek(it); showControls() },
-                onAudioTrackChange = onAudioTrackChange,
-                onSubtitleTrackChange = onSubtitleTrackChange,
-                showControls = { showControls() },
-                navController = navController,
-                isFullScreen = isFullScreen,
-                toggleFullScreen = { toggleFullScreen() },
-                contentDetail = contentDetail,
-                innersPadding = innersPadding
-            )
-        }
-    }
+  }
 }
 
 @SuppressLint("UnrememberedMutableInteractionSource")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ControlsOverlay(
-    visible: Boolean,
-    isPlaying: Boolean,
-    currentDuration: Long,
-    totalDuration: Long,
-    audioTracks: List<MediaPlayer.TrackDescription>,
-    selectedAudioTrack: Int,
-    subtitleTracks: List<MediaPlayer.TrackDescription>,
-    selectedSubtitleTrack: Int,
-    onPlayPauseToggle: () -> Unit,
-    onStop: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onAudioTrackChange: (Int) -> Unit,
-    onSubtitleTrackChange: (Int) -> Unit,
-    showControls: () -> Unit,
-    navController: NavController,
-    isFullScreen: Boolean,
-    toggleFullScreen: () -> Unit,
-    contentDetail: ContentDetail,
-    innersPadding: PaddingValues
+  visible: Boolean,
+  isPlaying: Boolean,
+  currentDuration: Long,
+  totalDuration: Long,
+  audioTracks: List<MediaPlayer.TrackDescription>,
+  selectedAudioTrack: Int,
+  subtitleTracks: List<MediaPlayer.TrackDescription>,
+  selectedSubtitleTrack: Int,
+  onPlayPauseToggle: () -> Unit,
+  onStop: () -> Unit,
+  onSeek: (Long) -> Unit,
+  onAudioTrackChange: (Int) -> Unit,
+  onSubtitleTrackChange: (Int) -> Unit,
+  showControls: () -> Unit,
+  navController: NavController,
+  isFullScreen: Boolean,
+  toggleFullScreen: () -> Unit,
+  contentDetail: ContentDetail,
+  innersPadding: PaddingValues
 ) {
-    val sheetState = rememberModalBottomSheetState()
-    var showAudioBottomSheet by remember { mutableStateOf(false) }
-    var showSubBottomSheet by remember { mutableStateOf(false) }
+  val sheetState = rememberModalBottomSheetState()
+  var showAudioBottomSheet by remember { mutableStateOf(false) }
+  var showSubBottomSheet by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(
-                top = if (isFullScreen) innersPadding.calculateTopPadding() else 8.dp,
-                start = if (isFullScreen) 32.dp else 16.dp,
-                end = if (isFullScreen) 32.dp else 16.dp,
-                bottom = if (isFullScreen) innersPadding.calculateBottomPadding() else 8.dp
-            )
-    ) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .padding(
+        top = if (isFullScreen) innersPadding.calculateTopPadding() else 8.dp,
+        start = if (isFullScreen) 32.dp else 16.dp,
+        end = if (isFullScreen) 32.dp else 16.dp,
+        bottom = if (isFullScreen) innersPadding.calculateBottomPadding() else 8.dp
+      )
+  ) {
 //        if (!videoUrl.isNullOrEmpty()) {
 //            Text(
 //                text = videoUrl, style = TextStyle(color = Color.White)
 //            )
 //        }
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(animationSpec = tween(durationMillis = 500)) + fadeIn(
-                animationSpec = tween(durationMillis = 500)
+    AnimatedVisibility(
+      visible = visible,
+      enter = slideInVertically(animationSpec = tween(durationMillis = 500)) + fadeIn(
+        animationSpec = tween(durationMillis = 500)
+      ).plus(if (!isFullScreen) expandIn(initialSize = { it }) else EnterTransition.None),
+      exit = slideOutVertically(animationSpec = tween(durationMillis = 500)) + fadeOut(
+        animationSpec = tween(durationMillis = 500)
+      ).plus(if (!isFullScreen) shrinkOut(targetSize = { it }) else ExitTransition.None)
+    ) {
+      Row(
+        Modifier.fillMaxWidth(), Arrangement.SpaceBetween
+      ) {
+        IconButton(
+          onClick = { navController.popBackStack() }, colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+              alpha = 0.5f
             )
-                .plus(if (!isFullScreen) expandIn(initialSize = { it }) else EnterTransition.None),
-            exit = slideOutVertically(animationSpec = tween(durationMillis = 500)) + fadeOut(
-                animationSpec = tween(durationMillis = 500)
-            ).plus(if (!isFullScreen) shrinkOut(targetSize = { it }) else ExitTransition.None)
-        ) {
-            Row(
-                Modifier.fillMaxWidth(), Arrangement.SpaceBetween
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
-                            alpha = 0.5f
-                        )
-                    ),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .width(48.dp)
-                        .border(
-                            width = 0.2.dp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
-                            CircleShape
-                        )
+          ), modifier = Modifier
+            .height(48.dp)
+            .width(48.dp)
+            .border(
+              width = 0.2.dp,
+              color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+              CircleShape
+            )
 //                modifier = Modifier.padding(16.dp)
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(
-                        onClick = { showSubBottomSheet = true; showControls() },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
-                                alpha = 0.5f
-                            )
-                        ),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .width(48.dp)
-                            .border(
-                                width = 0.2.dp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_subtitles_24),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                    IconButton(
-                        onClick = { showAudioBottomSheet = true; showControls() },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
-                                alpha = 0.5f
-                            )
-                        ),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .width(48.dp)
-                            .border(
-                                width = 0.2.dp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_audiotrack_24),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                    IconButton(
-                        onClick = toggleFullScreen, colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                        ), modifier = Modifier
-                            .height(48.dp)
-                            .width(48.dp)
-                            .border(
-                                width = 0.2.dp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = if (isFullScreen) R.drawable.baseline_fullscreen_exit_24 else R.drawable.baseline_fullscreen_24),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
-        }
-//            SeekButton("-10s") { onSeek((currentDuration - 10000).coerceAtLeast(0)) }
-        AnimatedVisibility(
-            visible,
-            modifier = Modifier.align(Alignment.Center),
-            enter = fadeIn(animationSpec = tween(durationMillis = 500)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 500))
         ) {
-            IconButton(
-                onClick = onPlayPauseToggle, colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                ), modifier = Modifier
-                    .height(64.dp)
-                    .width(64.dp)
-                    .border(
-                        width = 0.2.dp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
-                        CircleShape
-                    )
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
-                    ),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
+          Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
+          )
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          IconButton(
+            onClick = { showSubBottomSheet = true; showControls() },
+            colors = IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+                alpha = 0.5f
+              )
+            ),
+            modifier = Modifier
+              .height(48.dp)
+              .width(48.dp)
+              .border(
+                width = 0.2.dp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                CircleShape
+              )
+          ) {
+            Icon(
+              painter = painterResource(id = R.drawable.baseline_subtitles_24),
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+          }
+          IconButton(
+            onClick = { showAudioBottomSheet = true; showControls() },
+            colors = IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+                alpha = 0.5f
+              )
+            ),
+            modifier = Modifier
+              .height(48.dp)
+              .width(48.dp)
+              .border(
+                width = 0.2.dp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                CircleShape
+              )
+          ) {
+            Icon(
+              painter = painterResource(id = R.drawable.baseline_audiotrack_24),
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+          }
+          IconButton(
+            onClick = toggleFullScreen, colors = IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+            ), modifier = Modifier
+              .height(48.dp)
+              .width(48.dp)
+              .border(
+                width = 0.2.dp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                CircleShape
+              )
+          ) {
+            Icon(
+              painter = painterResource(id = if (isFullScreen) R.drawable.baseline_fullscreen_exit_24 else R.drawable.baseline_fullscreen_24),
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+          }
+        }
+      }
+    }
+//            SeekButton("-10s") { onSeek((currentDuration - 10000).coerceAtLeast(0)) }
+    AnimatedVisibility(
+      visible,
+      modifier = Modifier.align(Alignment.Center),
+      enter = fadeIn(animationSpec = tween(durationMillis = 500)),
+      exit = fadeOut(animationSpec = tween(durationMillis = 500))
+    ) {
+      IconButton(
+        onClick = onPlayPauseToggle, colors = IconButtonDefaults.iconButtonColors(
+          containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        ), modifier = Modifier
+          .height(64.dp)
+          .width(64.dp)
+          .border(
+            width = 0.2.dp,
+            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+            CircleShape
+          )
+      ) {
+        Icon(
+          painter = painterResource(
+            id = if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
+          ), contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+      }
+    }
 
 //            SeekButton("+10s") { onSeek((currentDuration + 10000).coerceAtMost(totalDuration)) }
-        AnimatedVisibility(
-            visible,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically(
-                initialOffsetY = { it }, animationSpec = tween(durationMillis = 500)
-            ) + fadeIn(animationSpec = tween(durationMillis = 500)).plus(
-                if (!isFullScreen) expandIn(
-                    initialSize = { it }) else EnterTransition.None
-            ),
-            exit = slideOutVertically(
-                targetOffsetY = { it }, animationSpec = tween(durationMillis = 500)
-            ) + fadeOut(animationSpec = tween(durationMillis = 500)).plus(
-                if (!isFullScreen) shrinkOut(
-                    targetSize = { it }) else ExitTransition.None
-            )
+    AnimatedVisibility(
+      visible, modifier = Modifier.align(Alignment.BottomCenter), enter = slideInVertically(
+        initialOffsetY = { it }, animationSpec = tween(durationMillis = 500)
+      ) + fadeIn(animationSpec = tween(durationMillis = 500)).plus(
+        if (!isFullScreen) expandIn(
+          initialSize = { it }) else EnterTransition.None
+      ), exit = slideOutVertically(
+        targetOffsetY = { it }, animationSpec = tween(durationMillis = 500)
+      ) + fadeOut(animationSpec = tween(durationMillis = 500)).plus(
+        if (!isFullScreen) shrinkOut(
+          targetSize = { it }) else ExitTransition.None
+      )
+    ) {
+      Column(Modifier.fillMaxWidth()) {
+        Row(
+          horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.fillMaxWidth()) {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = when (contentDetail) {
-                            is ContentDetail.Movie -> contentDetail.tmdbMovieDetail.title
-                            is ContentDetail.Show -> contentDetail.tmdbShowDetail.name
-                            else -> ""
-                        },
-                        style = if (isFullScreen) MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraLight
-                        ) else MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraLight),
-                    )
-                    Text(
-                        text = "${getFormatedTime(currentDuration)} / ${
-                            getFormatedTime(
-                                totalDuration
-                            )
-                        }",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraLight),
-                        modifier = Modifier
-                            .align(Alignment.Bottom)
-                            .padding(end = 4.dp)
-                    )
-                }
-                Box(Modifier.height(16.dp)) {
-                    Slider(
-                        value = currentDuration.toFloat(),
-                        valueRange = 0f..totalDuration.toFloat(),
-                        onValueChange = { onSeek(it.toLong()) },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(12.dp),
-                                thumbTrackGapSize = 0.dp,
-                                colors = SliderDefaults.colors(
-                                    activeTrackColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.secondaryContainer.copy(
-                                        alpha = 0.5f
-                                    )
-                                )
-                            )
-                        },
-                        thumb = { sliderState ->
-                            SliderDefaults.Thumb(
-                                interactionSource = MutableInteractionSource(),
-                                modifier = Modifier
-                                    .height(12.dp)
-                                    .width(12.dp)
-                                    .align(Alignment.Center),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            )
-                        },
-                        modifier = Modifier
-                    )
-                }
-            }
+          Text(
+            text = when (contentDetail) {
+              is ContentDetail.Movie -> contentDetail.tmdbMovieDetail.title
+              is ContentDetail.Show -> contentDetail.tmdbShowDetail.name
+              else -> ""
+            },
+            style = if (isFullScreen) MaterialTheme.typography.headlineMedium.copy(
+              fontWeight = FontWeight.ExtraLight
+            ) else MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraLight),
+          )
+          Text(
+            text = "${getFormatedTime(currentDuration)} / ${
+              getFormatedTime(
+                totalDuration
+              )
+            }",
+            color = Color.White,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraLight),
+            modifier = Modifier
+              .align(Alignment.Bottom)
+              .padding(end = 4.dp)
+          )
         }
-
-
-        if (showAudioBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showAudioBottomSheet = false }, sheetState = sheetState
-            ) {
-                DropdownMenuSelector(
-                    label = "Audio Tracks",
-                    options = audioTracks,
-                    selectedOption = selectedAudioTrack,
-                    onOptionSelected = onAudioTrackChange
+        Box(Modifier.height(16.dp)) {
+          Slider(
+            value = currentDuration.toFloat(),
+//            valueRange = 0f..totalDuration.toFloat(),
+            valueRange = 0f..totalDuration.toFloat(),
+            onValueChange = { onSeek(it.toLong()) },
+            track = { sliderState ->
+              SliderDefaults.Track(
+                sliderState = sliderState,
+                modifier = Modifier.height(12.dp),
+                thumbTrackGapSize = 0.dp,
+                colors = SliderDefaults.colors(
+                  activeTrackColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                  inactiveTrackColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+                    alpha = 0.5f
+                  )
                 )
-            }
-        }
-        if (showSubBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showSubBottomSheet = false }, sheetState = sheetState
-            ) {
-                DropdownMenuSelector(
-                    label = "Subtitle Tracks",
-                    options = subtitleTracks,
-                    selectedOption = selectedSubtitleTrack,
-                    onOptionSelected = onSubtitleTrackChange
+              )
+            },
+            thumb = { sliderState ->
+              SliderDefaults.Thumb(
+                interactionSource = MutableInteractionSource(),
+                modifier = Modifier
+                  .height(12.dp)
+                  .width(12.dp)
+                  .align(Alignment.Center),
+                colors = SliderDefaults.colors(
+                  thumbColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-            }
+              )
+            },
+            modifier = Modifier
+          )
         }
+      }
     }
+
+
+    if (showAudioBottomSheet) {
+      ModalBottomSheet(
+        onDismissRequest = { showAudioBottomSheet = false }, sheetState = sheetState
+      ) {
+        DropdownMenuSelector(
+          label = "Audio Tracks",
+          options = audioTracks,
+          selectedOption = selectedAudioTrack,
+          onOptionSelected = onAudioTrackChange
+        )
+      }
+    }
+    if (showSubBottomSheet) {
+      ModalBottomSheet(
+        onDismissRequest = { showSubBottomSheet = false }, sheetState = sheetState
+      ) {
+        DropdownMenuSelector(
+          label = "Subtitle Tracks",
+          options = subtitleTracks,
+          selectedOption = selectedSubtitleTrack,
+          onOptionSelected = onSubtitleTrackChange
+        )
+      }
+    }
+  }
 }
 
 @Composable
 fun DropdownMenuSelector(
-    label: String,
-    options: List<MediaPlayer.TrackDescription>,
-    selectedOption: Int,
-    onOptionSelected: (Int) -> Unit
+  label: String,
+  options: List<MediaPlayer.TrackDescription>,
+  selectedOption: Int,
+  onOptionSelected: (Int) -> Unit
 ) {
-    Column {
-        Text(
-            label, style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onPrimaryContainer
-            ), modifier = Modifier
-                .padding(vertical = 8.dp, horizontal = 16.dp)
-        )
+  Column {
+    Text(
+      label, style = MaterialTheme.typography.titleLarge.copy(
+        fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onPrimaryContainer
+      ), modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+    )
 
-        Box(
-            Modifier
-                .padding(bottom = 12.dp)
-                .height(1.dp)
-                .fillMaxWidth()
-                .background(color = MaterialTheme.colorScheme.onPrimaryContainer),
+    Box(
+      Modifier
+        .padding(bottom = 12.dp)
+        .height(1.dp)
+        .fillMaxWidth()
+        .background(color = MaterialTheme.colorScheme.onPrimaryContainer),
+    )
+    options.forEach { track ->
+      Button(
+        onClick = { onOptionSelected(track.id) },
+        Modifier.padding(bottom = 8.dp, start = 8.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+      ) {
+        Text(
+          text = track.name,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
+          fontWeight = if (track.id == selectedOption) FontWeight.ExtraBold else FontWeight.Normal
         )
-        options.forEach { track ->
-            Button(
-                onClick = { onOptionSelected(track.id) },
-                Modifier.padding(bottom = 8.dp, start = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                Text(
-                    text = track.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    fontWeight = if (track.id == selectedOption) FontWeight.ExtraBold else FontWeight.Normal
-                )
-            }
-        }
-        Spacer(Modifier.height(16.dp))
+      }
     }
+    Spacer(Modifier.height(16.dp))
+  }
 }

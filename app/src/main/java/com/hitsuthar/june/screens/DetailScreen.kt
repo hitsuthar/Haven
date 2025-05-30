@@ -1,10 +1,9 @@
 package com.hitsuthar.june.screens
 
+import MovieSyncViewModel
 import android.annotation.SuppressLint
-import android.os.Build
 import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,7 +72,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.minutes
 
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun DetailScreen(
   navController: NavController,
@@ -81,8 +79,10 @@ fun DetailScreen(
   contentDetailViewModel: ContentDetailViewModel,
   selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
-  innersPadding: PaddingValues
-) {
+  innersPadding: PaddingValues,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
   val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
 
   when (contentDetail) {
@@ -93,7 +93,8 @@ fun DetailScreen(
         navController = navController,
         selectedVideoViewModel = selectedVideoViewModel,
         ddlViewModel = ddlViewModel,
-        innersPadding = innersPadding
+        innersPadding = innersPadding,
+        movieSyncViewModel = movieSyncViewModel
       )
       LaunchedEffect(contentDetail) {
         contentDetail.let { ddlViewModel.fetchAllProviders(it) }
@@ -126,26 +127,24 @@ fun DetailScreen(
         navController = navController,
         selectedVideoViewModel = selectedVideoViewModel,
         ddlViewModel = ddlViewModel,
-        innersPadding = innersPadding
-
+        innersPadding = innersPadding,
+        movieSyncViewModel = movieSyncViewModel
       )
-
-
     }
-
     ContentDetail.Error -> ErrorMessage("Error Loading Content\n:(")
   }
 }
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun EpisodeDetailContent(
   detail: ContentDetail.Episode,
   navController: NavController,
   selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
-  innersPadding: PaddingValues
-) {
+  innersPadding: PaddingValues,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
   Box(
     Modifier
       .background(color = MaterialTheme.colorScheme.background)
@@ -167,6 +166,7 @@ fun EpisodeDetailContent(
           selectedVideo = selectedVideoViewModel,
           innersPadding = PaddingValues(0.dp),
           ddlViewModel = ddlViewModel,
+          movieSyncViewModel = movieSyncViewModel
         )
       }
       item {
@@ -208,7 +208,6 @@ data class DDLStream(
   val size: String? = null
 )
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @SuppressLint("MutableCollectionMutableState")
 @Composable
 fun MovieDetailContent(
@@ -216,8 +215,10 @@ fun MovieDetailContent(
   navController: NavController,
   selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
-  innersPadding: PaddingValues
-) {
+  innersPadding: PaddingValues,
+  movieSyncViewModel: MovieSyncViewModel,
+
+  ) {
   val logo = if (detail.tmdbMovieDetail.images?.logos.isNullOrEmpty()) {
     null
   } else {
@@ -247,6 +248,7 @@ fun MovieDetailContent(
           selectedVideo = selectedVideoViewModel,
           innersPadding = PaddingValues(0.dp),
           ddlViewModel = ddlViewModel,
+          movieSyncViewModel = movieSyncViewModel
         )
       }
 //            item {
@@ -276,7 +278,6 @@ fun MovieDetailContent(
 }
 
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun ShowDetailContent(
   detail: ContentDetail.Show,

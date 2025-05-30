@@ -1,8 +1,6 @@
 package com.hitsuthar.june.utils.dDLProviders
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import app.moviebase.tmdb.model.TmdbEpisode
 import app.moviebase.tmdb.model.TmdbMovieDetail
 import app.moviebase.tmdb.model.TmdbShowDetail
@@ -28,30 +26,29 @@ data class DDLProvider(
 
 val fetcher = DocumentFetcher()
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 val DDLProviders = listOf(
-  DDLProvider("Movies Drive", { tmdbMovieDetail ->
-    getMoviesDriveDDL(
-      title = tmdbMovieDetail.title,
-      year = tmdbMovieDetail.releaseDate?.year,
-      type = "movie",
-      fetcher = fetcher
-    ).map { it as MediaContent.Movie }
-  }, { tmdbShowDetail, tmdbEpisode ->
-    getMoviesDriveDDL(
-      title = tmdbShowDetail.name,
-      type = "tv",
-      season = tmdbEpisode.seasonNumber,
-      episode = tmdbEpisode.episodeNumber,
-      fetcher = fetcher
-    ).map {
-      // Convert the result to ensure proper TvSeries structure
-      when (it) {
-        is MediaContent.TvSeries -> it
-        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-      }
-    }
-  }),
+//  DDLProvider("Movies Drive", { tmdbMovieDetail ->
+//    getMoviesDriveDDL(
+//      title = tmdbMovieDetail.title,
+//      year = tmdbMovieDetail.releaseDate?.year,
+//      type = "movie",
+//      fetcher = fetcher
+//    ).map { it as MediaContent.Movie }
+//  }, { tmdbShowDetail, tmdbEpisode ->
+//    getMoviesDriveDDL(
+//      title = tmdbShowDetail.name,
+//      type = "tv",
+//      season = tmdbEpisode.seasonNumber,
+//      episode = tmdbEpisode.episodeNumber,
+//      fetcher = fetcher
+//    ).map {
+//      // Convert the result to ensure proper TvSeries structure
+//      when (it) {
+//        is MediaContent.TvSeries -> it
+//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+//      }
+//    }
+//  }),
 //    DDLProvider("Open Directory", { tmdbMovieDetail ->
 //        getOpenDirectoryDDL(
 //            title = tmdbMovieDetail.title,
@@ -152,25 +149,25 @@ val DDLProviders = listOf(
 //      }
 //    }
 //  }),
-//  DDLProvider("HdHub4U", { tmdbMovieDetail ->
-//    getHdHub4UDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getHdHub4UDDL(
-//      title = "${tmdbShowDetail.name} ${tmdbShowDetail.firstAirDate?.year}",
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
+  DDLProvider("HdHub4U", { tmdbMovieDetail ->
+    getHdHub4UDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getHdHub4UDDL(
+      title = tmdbShowDetail.name,
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
 )

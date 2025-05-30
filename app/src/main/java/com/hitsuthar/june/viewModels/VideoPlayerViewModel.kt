@@ -31,10 +31,10 @@ class VideoPlayerViewModel : ViewModel() {
     private val _selectedSubtitleTrack = MutableStateFlow(-1)
     var selectedSubtitleTrack = _selectedSubtitleTrack.asStateFlow()
 
-    private val _videoUrl = MutableStateFlow(null.toString())
+    private val _videoUrl = MutableStateFlow<String?>(null)
     var videoUrl = _videoUrl.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(true)
+    private val _isLoading = MutableStateFlow(false)
     var isLoading = _isLoading.asStateFlow()
 
     private val _isFullScreen = MutableStateFlow(false)
@@ -100,7 +100,7 @@ class VideoPlayerViewModel : ViewModel() {
         _audioTracks.value = emptyList()
         _selectedAudioTrack.value = 1
         _subtitleTracks.value = emptyList()
-        _selectedSubtitleTrack.value = -1
+        _selectedSubtitleTrack.value = 1
         _videoUrl.value = null.toString()
         _isLoading.value = true
         _isFullScreen.value = false

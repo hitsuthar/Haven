@@ -8,7 +8,7 @@ class SimpleIdGenerator {
     private val ID_LENGTH: Int = 6 // Adjust length as needed
 
     fun generateRandomId(): String {
-        val random: Random = Random()
+        val random = Random()
         val sb = StringBuilder(ID_LENGTH)
         for (i in 0 until ID_LENGTH) {
             val index: Int = random.nextInt(ALPHANUMERIC.length)

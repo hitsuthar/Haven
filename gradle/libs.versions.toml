@@ -46,6 +46,8 @@ protobufKotlin = "4.30.0-RC1"
 datastorePreferencesProto = "1.1.2"
 orgJetbrainsKotlinJvmGradlePlugin = "2.1.20-RC"
 accessibilityTestFramework = "4.1.1"
+firebaseFirestoreKtx = "25.1.4"
+firebaseAuthKtx = "23.2.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,7 +55,10 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
 core = { module = "com.github.topjohnwu.libsu:core", version.ref = "core" }
+firebase-auth-ktx = { module = "com.google.firebase:firebase-auth-ktx" }
+firebase-firestore-ktx = { module = "com.google.firebase:firebase-firestore-ktx" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
+google-firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "hazeMaterials" }
 haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = "hazeMaterials" }
 hilt-android-compiler-v250 = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompilerVersion" }
@@ -101,6 +106,8 @@ protobuf-kotlin = { group = "com.google.protobuf", name = "protobuf-kotlin", ver
 androidx-datastore-preferences-proto = { group = "androidx.datastore", name = "datastore-preferences-proto", version.ref = "datastorePreferencesProto" }
 org-jetbrains-kotlin-jvm-gradle-plugin = { group = "org.jetbrains.kotlin.jvm", name = "org.jetbrains.kotlin.jvm.gradle.plugin", version.ref = "orgJetbrainsKotlinJvmGradlePlugin" }
 accessibility-test-framework = { group = "com.google.android.apps.common.testing.accessibility.framework", name = "accessibility-test-framework", version.ref = "accessibilityTestFramework" }
+google-firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx", version.ref = "firebaseFirestoreKtx" }
+google-firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

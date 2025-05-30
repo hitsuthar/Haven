@@ -77,8 +77,15 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.logging.interceptor)
+
+    // Firebase products
+    implementation (libs.firebase.firestore.ktx)
+    implementation (libs.firebase.auth.ktx)
+    implementation (libs.google.firebase.database.ktx)
     implementation(libs.firebase.database.ktx)
     implementation(libs.firebase.database)
+    implementation(libs.google.firebase.firestore.ktx)
+    implementation(libs.google.firebase.auth.ktx)
 
 
     testImplementation(libs.junit)

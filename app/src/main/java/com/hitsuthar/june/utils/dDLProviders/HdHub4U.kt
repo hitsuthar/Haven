@@ -16,6 +16,7 @@ import org.jsoup.Jsoup
 
 suspend fun hdHub4USearch(query: String, fetcher: DocumentFetcher): List<String> {
   val searchUrl = "$hdHub4UUrl/?s=${formattedQuery(query)}"
+  Log.d("hdhub4u", "searchurl: $searchUrl")
   return withContext(Dispatchers.IO) {
     try {
       val document = Jsoup.parse(fetcher.fetchWithRetries(searchUrl))
@@ -39,10 +40,13 @@ suspend fun getHdHub4UDDL(
 ): Result<MediaContent> = withContext(Dispatchers.IO) {
   try {
     val searchResultUrls = hdHub4USearch(
-      if (type == "movie") "${title.trim().replace(" ", "+")}+$year"
-      else title.trim().replace(" ", "+"), fetcher
+      if (type == "movie") "$title $year"
+      else title, fetcher
     )
-    if (searchResultUrls.isEmpty()) return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
+    if (searchResultUrls.isEmpty()) {
+      Log.d("hdhub4u", "no result found")
+      return@withContext Result.failure(NoResultsException("No movies found for '$title'"))
+    }
 
     return@withContext when (type) {
       "movie" -> fetchMovieContent(searchResultUrls, fetcher)
@@ -126,9 +130,44 @@ private suspend fun fetchTvContent(
   val episodesMap = mutableMapOf<Int, MutableList<DDLStream>>() // episode number to streams
 
   try {
-    urls.map { url ->
+    urls.map { resultUrl ->
       async {
         try {
+          val doc = Jsoup.parse(fetcher.fetchWithRetries(resultUrl))
+          // Select the parent div that contains all single episode links
+          val singleEpisodeSection = doc.select("div:has(h2)")
+
+          singleEpisodeSection.select("h4:has(span)").forEach { episodeHeader ->
+            val episodeText = episodeHeader.text()
+
+            val regex = """EPiSODE\s*(\d+)""".toRegex(RegexOption.IGNORE_CASE)
+            val episodeNumber = regex.find(episodeText)?.groupValues?.get(1)?.toInt() ?: -1
+
+            if (episodeNumber == episode) {
+              // Process sibling elements until next episode section
+              episodeHeader.nextElementSiblings().takeWhile { it.tagName() == "h4" }.map { h4 ->
+                h4.select("a").map { a ->
+                  Log.d("hdhub4u", "hubdrive: ${a.attr("href")}")
+                  a.attr("href").let { aHref ->
+                    if (aHref.contains("hubdrive")) {
+                      val hubDrive =
+                        Jsoup.parse(fetcher.fetchWithRetries(aHref)).select("div a[href]")
+                          .firstOrNull { aElemet ->
+                            aElemet.attr("href").contains("hubcloud", true)
+                          }?.attr("href")?.let { hubDriveUrl ->
+                            Extractor().getHubCloudUrl(hubDriveUrl, fetcher)?.let { stream ->
+                              synchronized(episodesMap) {
+                                episodesMap.getOrPut(episode) { mutableListOf() }.add(stream)
+                              }
+                            }
+                          }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
 
         } catch (e: Exception) {
           Log.e("TvContent", "Error processing TV URL", e)
