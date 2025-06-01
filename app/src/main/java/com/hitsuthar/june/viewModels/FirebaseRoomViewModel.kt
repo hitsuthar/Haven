@@ -92,7 +92,7 @@ class MovieSyncViewModel : ViewModel() {
 
         // Set current room
         _currentRoom.value = room.copy(id = document.id)
-        if (currentRoom.value != null){
+        if (currentRoom.value != null) {
           listenToRoom(document.id)
           startSyncListener(document.id)
         }
@@ -188,7 +188,7 @@ class MovieSyncViewModel : ViewModel() {
   }
 
   fun updateCurrentMovie(movie: Movie) {
-    viewModelScope.launch{
+    viewModelScope.launch {
       val roomId = currentRoom.value?.id
       if (roomId != null) {
         val roomDoc = roomsCollection.document(roomId).get().await()
@@ -204,14 +204,20 @@ class MovieSyncViewModel : ViewModel() {
 
 
   // Update playback state (called from player)
-  fun updatePlaybackState(currentTime: Long, isPlaying: Boolean) {
+  fun updatePlaybackState(currentTime: Long, isPlaying: Boolean? = null) {
     val roomId = currentRoom.value?.id ?: return
+
 
     val updates = hashMapOf<String, Any>(
       "currentTime" to currentTime,
-      "playbackState" to if (isPlaying) "playing" else "paused",
       "lastUpdated" to ServerValue.TIMESTAMP
     )
+
+    // Only add playbackState if isPlaying is not null
+    isPlaying?.let {
+      updates["playbackState"] = if (it) "playing" else "paused"
+    }
+
     syncRef.child(roomId).updateChildren(updates)
   }
 

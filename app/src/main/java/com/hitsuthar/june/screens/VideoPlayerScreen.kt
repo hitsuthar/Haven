@@ -68,6 +68,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.hitsuthar.june.R
 import com.hitsuthar.june.SharedPreferencesManager
@@ -86,6 +89,7 @@ import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import kotlin.math.abs
 
 @SuppressLint("SourceLockedOrientationActivity", "StateFlowValueCalledInComposition")
 @Composable
@@ -133,24 +137,35 @@ fun VideoPlayerScreen(
 
   val partyID = SharedPreferencesManager(context.applicationContext).getData("PARTY_ID", "")
 
-  LaunchedEffect(Unit, watchPartyViewModel.isPlaying.value) {
-//        Log.d(
-//            "VideoPlayerScreen",
-//            "LaunchedEffect: currentDuration = $currentDuration, isPlaying = $isPlaying"
-//        )
-    mediaPlayer.time = watchPartyViewModel.currentTime.value
-    if (watchPartyViewModel.isPlaying.value) mediaPlayer.play() else mediaPlayer.pause()
+
+  fun updatePlayer(state: MovieSyncViewModel.SyncState) {
+    // Avoid feedback loops by checking if update came from us
+    if (abs(videoPlayerViewModel.currentDuration.value - state.currentTime) > 1000) {
+      mediaPlayer.setTime(state.currentTime)
+      videoPlayerViewModel.updateCurrentDuration(state.currentTime)
+    }
+
+    if (state.playbackState == "playing" && !videoPlayerViewModel.isPlaying.value) {
+      videoPlayerViewModel.play()
+      mediaPlayer.play()
+    } else if (state.playbackState == "paused" && videoPlayerViewModel.isPlaying.value) {
+      videoPlayerViewModel.pause()
+      mediaPlayer.pause()
+    }
   }
 
-//  LaunchedEffect((currentDuration / 1000) % 60, isPlaying) {
+
+  LaunchedEffect((currentDuration / 1000) % 60) {
 //    watchPartyViewModel.updatePlayback(currentDuration, isPlaying, partyID)
-//  }
+    movieSyncViewModel.updatePlaybackState(videoPlayerViewModel.currentDuration.value)
+  }
 
   LaunchedEffect(isFullScreen) {
     if (isFullScreen) {
       window.hide(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
     } else {
+      mediaPlayer.aspectRatio = "16:9"
       window.show(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemBars())
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
@@ -158,21 +173,25 @@ fun VideoPlayerScreen(
 
 //  Log.d("VideoPlayerScreen", "LaunchedEffect: video = ${video.value}") // Log inside LaunchedEffect
   if (currentRoom != null) {
-    LaunchedEffect(Unit, movieSyncViewModel.currentMovie.value) {
+    LaunchedEffect(Unit, movieSyncViewModel.currentMovie.collectAsState().value) {
       Log.d("VideoplayerScreen", "launchEffect: ${movieSyncViewModel.currentMovie.value}")
       if (movieSyncViewModel.currentMovie.value?.url != null) {
         videoPlayerViewModel.setVideoUrl(movieSyncViewModel.currentMovie.value?.url)
         mediaPlayer.stop()
-        mediaPlayer.media =
-          Media(libVLC, movieSyncViewModel.currentMovie.value?.url!!.toUri()).apply {
-            setHWDecoderEnabled(true, false)
-            addOption(":network-caching=1500")
-            addOption(":file-caching=1500")
-          }
-        if (isPlaying) mediaPlayer.play()
-//        vlcPlayerHolder.playNewUrl(movieSyncViewModel.currentMovie.value?.url!!)
+        val media = Media(libVLC, videoPlayerViewModel.videoUrl.value?.toUri()).apply {
+          setHWDecoderEnabled(true, false)
+          addOption(":network-caching=1500")
+          addOption(":file-caching=1500")
+        }
+        mediaPlayer.media = media
+        media.release()
+//        if (isPlaying) mediaPlayer.play()
       }
       videoPlayerViewModel.setLoading(false)
+    }
+    LaunchedEffect(Unit, movieSyncViewModel.syncState.collectAsState().value) {
+      Log.d("VideoPlayerScreen", "LaunchedEffect: ${movieSyncViewModel.syncState.value}")
+      updatePlayer(movieSyncViewModel.syncState.value!!)
     }
   } else {
     LaunchedEffect(video.value) {
@@ -199,6 +218,37 @@ fun VideoPlayerScreen(
     }
   }
 
+  val lifecycleOwner = LocalLifecycleOwner.current
+  var vlcVideoLayout: VLCVideoLayout? = null
+  var wasPlaying = false
+
+  DisposableEffect(lifecycleOwner) {
+    val observer = LifecycleEventObserver { _, event ->
+      when (event) {
+        Lifecycle.Event.ON_PAUSE -> {
+          wasPlaying = mediaPlayer.isPlaying
+          mediaPlayer.pause()
+        }
+        Lifecycle.Event.ON_RESUME -> {
+          vlcVideoLayout?.let { layout ->
+            mediaPlayer.attachViews(layout, null, false, false)
+            if (wasPlaying) {
+              mediaPlayer.play()
+            }
+          }
+        }
+        else -> {}
+      }
+    }
+
+    lifecycleOwner.lifecycle.addObserver(observer)
+
+    onDispose {
+      lifecycleOwner.lifecycle.removeObserver(observer)
+//      vlcPlayerHolder.release()
+    }
+  }
+
   DisposableEffect(Unit) {
 
     mediaPlayer.setEventListener {
@@ -207,8 +257,21 @@ fun VideoPlayerScreen(
           // Fetch tracks after media is parsed
         }
 
-        MediaPlayer.Event.Paused -> videoPlayerViewModel.pause()
-        MediaPlayer.Event.Playing -> videoPlayerViewModel.play()
+        MediaPlayer.Event.Paused -> {
+          videoPlayerViewModel.pause()
+          movieSyncViewModel.updatePlaybackState(
+            videoPlayerViewModel.currentDuration.value,
+            videoPlayerViewModel.isPlaying.value
+          )
+        }
+
+        MediaPlayer.Event.Playing -> {
+          videoPlayerViewModel.play()
+          movieSyncViewModel.updatePlaybackState(
+            videoPlayerViewModel.currentDuration.value,
+            videoPlayerViewModel.isPlaying.value
+          )
+        }
 
         MediaPlayer.Event.TimeChanged -> {
           videoPlayerViewModel.updateCurrentDuration(mediaPlayer.time)
@@ -275,7 +338,8 @@ fun VideoPlayerScreen(
       isFullScreen = isFullScreen,
       toggleFullScreen = { videoPlayerViewModel.toggleFullScreen() },
       innersPadding = innersPadding,
-      contentDetail = contentDetail
+      contentDetail = contentDetail,
+      vlcVideoLayout = { vlcVideoLayout = it }
     )
   }
 }
@@ -302,7 +366,8 @@ fun VideoPlayerComposable(
   isFullScreen: Boolean,
   toggleFullScreen: () -> Unit,
   innersPadding: PaddingValues,
-  contentDetail: ContentDetail
+  contentDetail: ContentDetail,
+  vlcVideoLayout:(VLCVideoLayout) -> Unit
 ) {
   var controlsVisible by remember { mutableStateOf(true) }
   val coroutineScope = rememberCoroutineScope()
@@ -347,12 +412,8 @@ fun VideoPlayerComposable(
       AndroidView(
         factory = { context ->
           VLCVideoLayout(context).apply {
+            vlcVideoLayout(this)
             mediaPlayer.attachViews(this, null, false, false)
-            if (!videoUrl.isNullOrEmpty()) {
-              val media = Media(mediaPlayer.libVLC, videoUrl.toString().toUri())
-              mediaPlayer.media = media
-              if (!mediaPlayer.isPlaying) mediaPlayer.play()
-            }
           }
         }, modifier = modifier.background(color = MaterialTheme.colorScheme.background)
       )
