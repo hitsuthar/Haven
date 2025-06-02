@@ -27,28 +27,28 @@ data class DDLProvider(
 val fetcher = DocumentFetcher()
 
 val DDLProviders = listOf(
-//  DDLProvider("Movies Drive", { tmdbMovieDetail ->
-//    getMoviesDriveDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getMoviesDriveDDL(
-//      title = tmdbShowDetail.name,
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      // Convert the result to ensure proper TvSeries structure
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
+  DDLProvider("Movies Drive", { tmdbMovieDetail ->
+    getMoviesDriveDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getMoviesDriveDDL(
+      title = tmdbShowDetail.name,
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      // Convert the result to ensure proper TvSeries structure
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
 //    DDLProvider("Open Directory", { tmdbMovieDetail ->
 //        getOpenDirectoryDDL(
 //            title = tmdbMovieDetail.title,
@@ -65,90 +65,90 @@ val DDLProviders = listOf(
 //            fetcher = fetcher
 //        )
 //    }),
-//  DDLProvider("Rog Movies", { tmdbMovieDetail ->
-//    getRogMoviesDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getRogMoviesDDL(
-//      title = tmdbShowDetail.name,
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
-//  DDLProvider("Movies Mod", { tmdbMovieDetail ->
-//    getMoviesModDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getMoviesModDDL(
-//      title = tmdbShowDetail.name,
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
-//  DDLProvider("UHD Movies", { tmdbMovieDetail ->
-//    getUHDMoviesDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getUHDMoviesDDL(
-//      title = tmdbShowDetail.name,
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
-//  DDLProvider("Cinema Lux", { tmdbMovieDetail ->
-//    getCinemaLuxDDL(
-//      title = tmdbMovieDetail.title,
-//      year = tmdbMovieDetail.releaseDate?.year,
-//      type = "movie",
-//      fetcher = fetcher
-//    ).map { it as MediaContent.Movie }
-//  }, { tmdbShowDetail, tmdbEpisode ->
-//    getCinemaLuxDDL(
-//      title = "${tmdbShowDetail.name} ${tmdbShowDetail.firstAirDate?.year}",
-//      type = "tv",
-//      season = tmdbEpisode.seasonNumber,
-//      episode = tmdbEpisode.episodeNumber,
-//      fetcher = fetcher
-//    ).map {
-//      when (it) {
-//        is MediaContent.TvSeries -> it
-//        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
-//      }
-//    }
-//  }),
+  DDLProvider("Rog Movies", { tmdbMovieDetail ->
+    getRogMoviesDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getRogMoviesDDL(
+      title = tmdbShowDetail.name,
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
+  DDLProvider("Movies Mod", { tmdbMovieDetail ->
+    getMoviesModDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getMoviesModDDL(
+      title = tmdbShowDetail.name,
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
+  DDLProvider("UHD Movies", { tmdbMovieDetail ->
+    getUHDMoviesDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getUHDMoviesDDL(
+      title = tmdbShowDetail.name,
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
+  DDLProvider("Cinema Lux", { tmdbMovieDetail ->
+    getCinemaLuxDDL(
+      title = tmdbMovieDetail.title,
+      year = tmdbMovieDetail.releaseDate?.year,
+      type = "movie",
+      fetcher = fetcher
+    ).map { it as MediaContent.Movie }
+  }, { tmdbShowDetail, tmdbEpisode ->
+    getCinemaLuxDDL(
+      title = "${tmdbShowDetail.name} ${tmdbShowDetail.firstAirDate?.year}",
+      type = "tv",
+      season = tmdbEpisode.seasonNumber,
+      episode = tmdbEpisode.episodeNumber,
+      fetcher = fetcher
+    ).map {
+      when (it) {
+        is MediaContent.TvSeries -> it
+        else -> MediaContent.TvSeries(emptyList()) // Fallback empty structure
+      }
+    }
+  }),
   DDLProvider("HdHub4U", { tmdbMovieDetail ->
     getHdHub4UDDL(
       title = tmdbMovieDetail.title,

@@ -13,6 +13,9 @@ class VideoPlayerViewModel : ViewModel() {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying = _isPlaying.asStateFlow()
 
+    private val _isBuffering = MutableStateFlow(false)
+    val isBuffering = _isBuffering.asStateFlow()
+
     private val _currentDuration = MutableStateFlow(0L)
     val currentDuration = _currentDuration.asStateFlow()
 
@@ -52,6 +55,10 @@ class VideoPlayerViewModel : ViewModel() {
 
     fun togglePlayPause() {
         _isPlaying.value = !_isPlaying.value
+    }
+
+    fun setIsBuffering(isBuffering: Boolean) {
+        _isBuffering.value = isBuffering
     }
 
     fun updateCurrentDuration(duration: Long) {

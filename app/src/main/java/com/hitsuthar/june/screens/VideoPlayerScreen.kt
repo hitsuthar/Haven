@@ -120,10 +120,9 @@ fun VideoPlayerScreen(
   val video = selectedVideo.selectedVideo.collectAsState()
   val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
   val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
+  val syncState by movieSyncViewModel.syncState.collectAsState()
+  var isLocallyBuffering by remember { mutableStateOf(false) }
 
-//  val vlcPlayerHolder = remember { VlcPlayerHolder(context) }
-
-//    Log.d("VideoPlayerScreen", "VideoPlayerScreen: ${video}")
   val totalDuration = videoPlayerViewModel.totalDuration.collectAsState().value
   val isPlaying = videoPlayerViewModel.isPlaying.collectAsState().value
   val currentDuration = videoPlayerViewModel.currentDuration.collectAsState().value
@@ -135,7 +134,7 @@ fun VideoPlayerScreen(
   val isLoading = videoPlayerViewModel.isLoading.collectAsState().value
   val isFullScreen = videoPlayerViewModel.isFullScreen.collectAsState().value
 
-  val partyID = SharedPreferencesManager(context.applicationContext).getData("PARTY_ID", "")
+  val userID = SharedPreferencesManager(context.applicationContext).getData("USER_ID", "")
 
 
   fun updatePlayer(state: MovieSyncViewModel.SyncState) {
@@ -155,9 +154,13 @@ fun VideoPlayerScreen(
   }
 
 
+
+
+
   LaunchedEffect((currentDuration / 1000) % 60) {
-//    watchPartyViewModel.updatePlayback(currentDuration, isPlaying, partyID)
-    movieSyncViewModel.updatePlaybackState(videoPlayerViewModel.currentDuration.value)
+    if (abs(videoPlayerViewModel.currentDuration.value - movieSyncViewModel.syncState.value?.currentTime!!) > 1000) {
+      movieSyncViewModel.updatePlaybackState(videoPlayerViewModel.currentDuration.value, isPlaying)
+    }
   }
 
   LaunchedEffect(isFullScreen) {
@@ -171,10 +174,9 @@ fun VideoPlayerScreen(
     }
   }
 
-//  Log.d("VideoPlayerScreen", "LaunchedEffect: video = ${video.value}") // Log inside LaunchedEffect
   if (currentRoom != null) {
     LaunchedEffect(Unit, movieSyncViewModel.currentMovie.collectAsState().value) {
-      Log.d("VideoplayerScreen", "launchEffect: ${movieSyncViewModel.currentMovie.value}")
+//      Log.d("VideoplayerScreen", "launchEffect: ${movieSyncViewModel.currentMovie.value}")
       if (movieSyncViewModel.currentMovie.value?.url != null) {
         videoPlayerViewModel.setVideoUrl(movieSyncViewModel.currentMovie.value?.url)
         mediaPlayer.stop()
@@ -185,12 +187,11 @@ fun VideoPlayerScreen(
         }
         mediaPlayer.media = media
         media.release()
-//        if (isPlaying) mediaPlayer.play()
       }
       videoPlayerViewModel.setLoading(false)
     }
     LaunchedEffect(Unit, movieSyncViewModel.syncState.collectAsState().value) {
-      Log.d("VideoPlayerScreen", "LaunchedEffect: ${movieSyncViewModel.syncState.value}")
+//      Log.d("VideoPlayerScreen", "LaunchedEffect: ${movieSyncViewModel.syncState.value}")
       updatePlayer(movieSyncViewModel.syncState.value!!)
     }
   } else {
@@ -213,7 +214,6 @@ fun VideoPlayerScreen(
           else -> null
         }
       )
-//      watchPartyViewModel.updateVideoUrl(videoUrl)
       videoPlayerViewModel.setLoading(false)
     }
   }
@@ -229,6 +229,7 @@ fun VideoPlayerScreen(
           wasPlaying = mediaPlayer.isPlaying
           mediaPlayer.pause()
         }
+
         Lifecycle.Event.ON_RESUME -> {
           vlcVideoLayout?.let { layout ->
             mediaPlayer.attachViews(layout, null, false, false)
@@ -237,6 +238,7 @@ fun VideoPlayerScreen(
             }
           }
         }
+
         else -> {}
       }
     }
@@ -250,7 +252,6 @@ fun VideoPlayerScreen(
   }
 
   DisposableEffect(Unit) {
-
     mediaPlayer.setEventListener {
       when (it.type) {
         MediaPlayer.Event.ESAdded -> {
@@ -282,6 +283,13 @@ fun VideoPlayerScreen(
           videoPlayerViewModel.updateSubtitleTracks(
             mediaPlayer.spuTracks.orEmpty().toList()
           )
+        }
+
+        MediaPlayer.Event.Buffering -> {
+          Log.d("VideoPlayerScreen", "Buffering: ${it.buffering}")
+          videoPlayerViewModel.setIsBuffering(true)
+//          movieSyncViewModel.setBufferingState(true, userID)
+
         }
       }
     }
@@ -339,8 +347,28 @@ fun VideoPlayerScreen(
       toggleFullScreen = { videoPlayerViewModel.toggleFullScreen() },
       innersPadding = innersPadding,
       contentDetail = contentDetail,
-      vlcVideoLayout = { vlcVideoLayout = it }
+      vlcVideoLayout = { vlcVideoLayout = it },
+
     )
+  }
+}
+
+@Composable
+fun BufferingIndicator(isLocal: Boolean) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(Color.Black.copy(alpha = 0.7f)),
+    contentAlignment = Alignment.Center
+  ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      CircularProgressIndicator()
+      Spacer(modifier = Modifier.height(8.dp))
+      Text(
+        text = if (isLocal) "Buffering..." else "Waiting for others...",
+        color = Color.White
+      )
+    }
   }
 }
 
@@ -367,7 +395,7 @@ fun VideoPlayerComposable(
   toggleFullScreen: () -> Unit,
   innersPadding: PaddingValues,
   contentDetail: ContentDetail,
-  vlcVideoLayout:(VLCVideoLayout) -> Unit
+  vlcVideoLayout: (VLCVideoLayout) -> Unit,
 ) {
   var controlsVisible by remember { mutableStateOf(true) }
   val coroutineScope = rememberCoroutineScope()
@@ -399,21 +427,23 @@ fun VideoPlayerComposable(
       .padding(top = if (!isFullScreen) innersPadding.calculateTopPadding() else 0.dp)
   ) {
 
-    Box(modifier = modifier
-      .pointerInput(Unit) {
-        detectTapGestures(onTap = {
-          if (!controlsVisible) showControls() else controlsVisible = false
-        })
-      }
-      .background(color = MaterialTheme.colorScheme.background)
-      .then(
-        if (isFullScreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16 / 9f)
-      )) {
+    Box(
+      modifier = modifier
+        .pointerInput(Unit) {
+          detectTapGestures(onTap = {
+            if (!controlsVisible) showControls() else controlsVisible = false
+          })
+        }
+        .background(color = MaterialTheme.colorScheme.background)
+        .then(
+          if (isFullScreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16 / 9f)
+        )) {
       AndroidView(
         factory = { context ->
           VLCVideoLayout(context).apply {
             vlcVideoLayout(this)
             mediaPlayer.attachViews(this, null, false, false)
+            keepScreenOn = true
           }
         }, modifier = modifier.background(color = MaterialTheme.colorScheme.background)
       )
@@ -439,6 +469,10 @@ fun VideoPlayerComposable(
         contentDetail = contentDetail,
         innersPadding = innersPadding
       )
+//      isBuffering?.let {
+//        BufferingIndicator(isLocal = it)
+//
+//      }
     }
   }
 }

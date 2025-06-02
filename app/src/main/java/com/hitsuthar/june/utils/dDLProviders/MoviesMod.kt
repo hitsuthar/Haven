@@ -1,8 +1,6 @@
 package com.hitsuthar.june.utils.dDLProviders
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.screens.MediaContent
 import com.hitsuthar.june.utils.DocumentFetcher
@@ -33,7 +31,6 @@ suspend fun moviesModSearch(query: String, fetcher: DocumentFetcher): List<Strin
   }
 }
 
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 suspend fun getMoviesModDDL(
   title: String,
   year: Int? = null,

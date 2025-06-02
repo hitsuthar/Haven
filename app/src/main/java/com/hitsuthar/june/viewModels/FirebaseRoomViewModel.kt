@@ -1,7 +1,6 @@
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ServerValue
@@ -222,15 +221,15 @@ class MovieSyncViewModel : ViewModel() {
   }
 
   // Update user presence
-  fun updateUserPresence(isBuffering: Boolean) {
+  fun updateUserPresence(isBuffering: Boolean, userID: String) {
     val roomId = currentRoom.value?.id ?: return
-    val userId = Firebase.auth.currentUser?.uid ?: return
 
     val userPresence = hashMapOf<String, Any>(
-      "buffering" to isBuffering, "lastSeen" to ServerValue.TIMESTAMP
+      "buffering" to isBuffering,
+      "lastSeen" to ServerValue.TIMESTAMP
     )
 
-    syncRef.child("$roomId/users/$userId").updateChildren(userPresence)
+    syncRef.child("$roomId/users/$userID").updateChildren(userPresence)
   }
 
 
