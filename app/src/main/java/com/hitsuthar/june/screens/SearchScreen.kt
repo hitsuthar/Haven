@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import app.moviebase.tmdb.model.TmdbMediaListItem
+import com.hitsuthar.june.components.MediaCard
 import com.hitsuthar.june.utils.TmdbRepository
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
 

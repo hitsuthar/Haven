@@ -289,7 +289,6 @@ fun VideoPlayerScreen(
           Log.d("VideoPlayerScreen", "Buffering: ${it.buffering}")
           videoPlayerViewModel.setIsBuffering(true)
 //          movieSyncViewModel.setBufferingState(true, userID)
-
         }
       }
     }

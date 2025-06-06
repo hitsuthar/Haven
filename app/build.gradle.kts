@@ -74,7 +74,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.logging.interceptor)
 
@@ -83,7 +82,7 @@ dependencies {
     implementation (libs.firebase.auth.ktx)
     implementation (libs.google.firebase.database.ktx)
     implementation(libs.firebase.database.ktx)
-    implementation(libs.firebase.database)
+//    implementation(libs.firebase.database)
     implementation(libs.google.firebase.firestore.ktx)
     implementation(libs.google.firebase.auth.ktx)
 

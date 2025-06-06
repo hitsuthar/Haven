@@ -59,13 +59,11 @@ fun DDLScreen(
   innersPadding: PaddingValues,
   ddlViewModel: DDLViewModel,
   movieSyncViewModel: MovieSyncViewModel,
-
-  ) {
+) {
   var showBottomSheet by rememberSaveable { mutableStateOf(false) }
   val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
   val currentStreams by ddlViewModel.currentStreams.collectAsState()
   val ddlState by ddlViewModel.state.collectAsState()
-
   Column(
     modifier = Modifier.padding(
       top = innersPadding.calculateTopPadding(),
@@ -184,31 +182,20 @@ fun DDLScreen(
 
     // Content area
     when {
-      currentStreams?.streams?.isNotEmpty() == true -> {
-        Column {
-          currentStreams!!.streams.forEach { stream ->
-            DDLButton(
-              item = stream,
-              navController = navController,
-              selectedVideo = selectedVideo,
-              movieSyncViewModel = movieSyncViewModel,
-
-
-              )
-
-          }
-          Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
+      currentStreams?.streams?.isNotEmpty() == true -> Column {
+        currentStreams!!.streams.forEach { stream ->
+          DDLButton(
+            item = stream,
+            navController = navController,
+            selectedVideo = selectedVideo,
+            movieSyncViewModel = movieSyncViewModel
+          )
         }
+        Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
       }
 
-      selectedProvider != null -> {
-        ErrorMessage(message = "No streams found for $selectedProvider")
-      }
-
-      ddlState is DDLState.Error -> {
-        ErrorMessage(message = (ddlState as DDLState.Error).message)
-      }
-
+      selectedProvider != null -> ErrorMessage(message = "No streams found for $selectedProvider")
+      ddlState is DDLState.Error -> ErrorMessage(message = (ddlState as DDLState.Error).message)
       else -> LoadingIndicator()
     }
   }
@@ -281,11 +268,15 @@ fun DDLButton(
   Box(Modifier.background(color = MaterialTheme.colorScheme.background)) {
     Button(
       onClick = {
-        if (currentRoom == null){
+        if (currentRoom == null) {
           selectedVideo.setSelectedVideo(Stream.DDL(item))
           navController.navigate(route = Screen.VideoPlayer.route)
-        }else{
-          movieSyncViewModel.updateCurrentMovie(MovieSyncViewModel.Movie(title = item.name, url = item.url))
+        } else {
+          movieSyncViewModel.updateCurrentMovie(
+            MovieSyncViewModel.Movie(
+              title = item.name, url = item.url
+            )
+          )
           navController.navigate(route = Screen.Party.route)
         }
       },

@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -43,7 +44,8 @@ fun SetupNavGraph(
   watchPartyViewModel: WatchPartyViewModel,
   videoPlayerViewModel: VideoPlayerViewModel,
   ddlViewModel: DDLViewModel,
-  movieSyncViewModel: MovieSyncViewModel
+  movieSyncViewModel: MovieSyncViewModel,
+  modifier:Modifier = Modifier
 ) {
   val coroutineScope = CoroutineScope(Dispatchers.IO)
   val spm = SharedPreferencesManager(context.applicationContext)
@@ -69,6 +71,7 @@ fun SetupNavGraph(
   NavHost(
     navController = navController,
     startDestination = Screen.Home.route,
+//    modifier = modifier
   ) {
     composable(Screen.Home.route) {
       HomeScreen(

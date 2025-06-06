@@ -131,6 +131,7 @@ fun DetailScreen(
         movieSyncViewModel = movieSyncViewModel
       )
     }
+
     ContentDetail.Error -> ErrorMessage("Error Loading Content\n:(")
   }
 }
@@ -190,14 +191,11 @@ sealed class MediaContent {
       get() = seasons.flatMap { it.episodes.flatMap { it1 -> it1.streams } }
 
     data class Season(
-      val number: Int,
-      val episodes: List<Episode>
+      val number: Int, val episodes: List<Episode>
     )
 
     data class Episode(
-      val number: Int,
-      val title: String? = null,
-      val streams: List<DDLStream>
+      val number: Int, val title: String? = null, val streams: List<DDLStream>
     )
   }
 }
@@ -371,8 +369,6 @@ fun ShowDetailContent(
 
       if (episodes.isNotEmpty()) {
         items(episodes) {
-
-
           Box(
             Modifier
               .background(color = MaterialTheme.colorScheme.background)
@@ -380,7 +376,6 @@ fun ShowDetailContent(
           ) {
             Button(
               onClick = {
-
                 contentDetailViewModel.setContentDetail(
                   contentType = "episode",
                   repository = repository,
@@ -613,40 +608,38 @@ fun BottomInfoSection(detail: ContentDetail, logoImage: TmdbFileImage?) {
       }
       if (detail is ContentDetail.Movie) {
         Text(
-          detail.tmdbMovieDetail.overview, style = MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Light
-
+          detail.tmdbMovieDetail.overview, style = MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Light, textAlign = TextAlign.Center
           ), modifier = Modifier.padding(start = 24.dp, top = 8.dp, end = 24.dp)
         )
       } else if (detail is ContentDetail.Show) {
         Text(
-          detail.tmdbShowDetail.overview, style = MaterialTheme.typography.bodyLarge.copy(
+          detail.tmdbShowDetail.overview, style = MaterialTheme.typography.bodyMedium.copy(
             color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Light
 
           ), modifier = Modifier.padding(start = 24.dp, top = 8.dp, end = 24.dp)
         )
       } else if (detail is ContentDetail.Episode) {
         Text(
-          detail.tmdbEpisodeDetail.overview, style = MaterialTheme.typography.bodyLarge.copy(
+          detail.tmdbEpisodeDetail.overview, style = MaterialTheme.typography.bodyMedium.copy(
             color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Light
 
           ), modifier = Modifier.padding(start = 24.dp, top = 8.dp, end = 24.dp)
         )
       }
-      if (detail is ContentDetail.Movie) {
-        LazyRow(
-          horizontalArrangement = Arrangement.spacedBy(16.dp),
-          modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .padding(top = 16.dp)
-        ) {
+
+      LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier
+          .align(Alignment.CenterHorizontally)
+          .padding(top = 16.dp)
+      ) {
+        if (detail is ContentDetail.Movie) {
           items(detail.tmdbMovieDetail.genres) { genre ->
             Text(
               genre.name, style = MaterialTheme.typography.bodyMedium.copy(
-
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 fontWeight = FontWeight.Light
-
               ), modifier = Modifier
                 .background(
                   color = MaterialTheme.colorScheme.secondaryContainer,
@@ -655,22 +648,12 @@ fun BottomInfoSection(detail: ContentDetail, logoImage: TmdbFileImage?) {
                 .padding(vertical = 4.dp, horizontal = 8.dp)
             )
           }
-        }
-      } else if (detail is ContentDetail.Show) {
-        LazyRow(
-          horizontalArrangement = Arrangement.spacedBy(16.dp),
-          modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .padding(top = 16.dp, start = 8.dp, end = 8.dp)
-            .clip(RoundedCornerShape(16.dp))
-        ) {
+        } else if (detail is ContentDetail.Show) {
           items(detail.tmdbShowDetail.genres) { genre ->
             Text(
               genre.name, style = MaterialTheme.typography.bodyMedium.copy(
-
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 fontWeight = FontWeight.Light
-
               ), modifier = Modifier
                 .background(
                   color = MaterialTheme.colorScheme.secondaryContainer,
@@ -679,14 +662,14 @@ fun BottomInfoSection(detail: ContentDetail, logoImage: TmdbFileImage?) {
                 .padding(vertical = 4.dp, horizontal = 8.dp)
             )
           }
-
+        } else if (detail is ContentDetail.Episode) {
         }
-      } else if (detail is ContentDetail.Episode) {
       }
       Spacer(Modifier.height(24.dp))
     }
   }
 }
+
 
 
 
