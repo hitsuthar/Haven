@@ -1,11 +1,11 @@
 package com.hitsuthar.june.utils.dDLProviders
 
 import android.util.Log
+import com.hitsuthar.june.cinemaLuxUrl
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.screens.MediaContent
 import com.hitsuthar.june.utils.DocumentFetcher
-import com.hitsuthar.june.utils.cinemaLuxUrl
-import com.hitsuthar.junescrapper.extractors.Extractor
+import com.hitsuthar.june.utils.extractors.Extractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

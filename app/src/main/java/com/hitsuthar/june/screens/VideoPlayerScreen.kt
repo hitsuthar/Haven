@@ -157,11 +157,7 @@ fun VideoPlayerScreen(
 
 
 
-  LaunchedEffect((currentDuration / 1000) % 60) {
-    if (abs(videoPlayerViewModel.currentDuration.value - movieSyncViewModel.syncState.value?.currentTime!!) > 1000) {
-      movieSyncViewModel.updatePlaybackState(videoPlayerViewModel.currentDuration.value, isPlaying)
-    }
-  }
+
 
   LaunchedEffect(isFullScreen) {
     if (isFullScreen) {
@@ -175,27 +171,35 @@ fun VideoPlayerScreen(
   }
 
   if (currentRoom != null) {
-    LaunchedEffect(Unit, movieSyncViewModel.currentMovie.collectAsState().value) {
-//      Log.d("VideoplayerScreen", "launchEffect: ${movieSyncViewModel.currentMovie.value}")
-      if (movieSyncViewModel.currentMovie.value?.url != null) {
-        videoPlayerViewModel.setVideoUrl(movieSyncViewModel.currentMovie.value?.url)
-        mediaPlayer.stop()
-        val media = Media(libVLC, videoPlayerViewModel.videoUrl.value?.toUri()).apply {
-          setHWDecoderEnabled(true, false)
-          addOption(":network-caching=1500")
-          addOption(":file-caching=1500")
+    if (movieSyncViewModel.currentMovie.collectAsState().value?.url.isNullOrBlank()){
+      LaunchedEffect((currentDuration / 1000) % 60) {
+        if (abs(currentDuration - movieSyncViewModel.syncState.value?.currentTime!!) > 1000) {
+          movieSyncViewModel.updatePlaybackState(
+            videoPlayerViewModel.currentDuration.value,
+            isPlaying
+          )
         }
-        mediaPlayer.media = media
-        media.release()
       }
-      videoPlayerViewModel.setLoading(false)
-    }
-    LaunchedEffect(Unit, movieSyncViewModel.syncState.collectAsState().value) {
-//      Log.d("VideoPlayerScreen", "LaunchedEffect: ${movieSyncViewModel.syncState.value}")
-      updatePlayer(movieSyncViewModel.syncState.value!!)
+      LaunchedEffect(Unit, movieSyncViewModel.currentMovie.collectAsState().value) {
+        if (movieSyncViewModel.currentMovie.value?.url != null) {
+          videoPlayerViewModel.setVideoUrl(movieSyncViewModel.currentMovie.value?.url)
+          mediaPlayer.stop()
+          val media = Media(libVLC, videoPlayerViewModel.videoUrl.value?.toUri()).apply {
+            setHWDecoderEnabled(true, false)
+            addOption(":network-caching=1500")
+            addOption(":file-caching=1500")
+          }
+          mediaPlayer.media = media
+          media.release()
+        }
+        videoPlayerViewModel.setLoading(false)
+      }
+      LaunchedEffect(Unit, movieSyncViewModel.syncState.collectAsState().value) {
+        updatePlayer(movieSyncViewModel.syncState.value!!)
+      }
     }
   } else {
-    LaunchedEffect(video.value) {
+    LaunchedEffect(Unit, video.value) {
       videoPlayerViewModel.setVideoUrl(
         when (video.value) {
           is Stream.DDL -> (video.value as Stream.DDL).ddlStream.url.replace(
@@ -214,6 +218,15 @@ fun VideoPlayerScreen(
           else -> null
         }
       )
+      mediaPlayer.stop()
+      val media = Media(libVLC, videoPlayerViewModel.videoUrl.value?.toUri()).apply {
+        setHWDecoderEnabled(true, false)
+        addOption(":network-caching=1500")
+        addOption(":file-caching=1500")
+      }
+      mediaPlayer.media = media
+      media.release()
+      mediaPlayer.play()
       videoPlayerViewModel.setLoading(false)
     }
   }

@@ -1,11 +1,12 @@
 package com.hitsuthar.june.utils.dDLProviders
 
 import android.util.Log
+import com.hitsuthar.june.moviesDriveUrl
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.screens.MediaContent
 import com.hitsuthar.june.utils.DocumentFetcher
+import com.hitsuthar.june.utils.extractors.Extractor
 import com.hitsuthar.june.utils.formattedQuery
-import com.hitsuthar.junescrapper.extractors.Extractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -13,8 +14,7 @@ import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 
 suspend fun moviesDriveSearch(query: String, fetcher: DocumentFetcher): List<String> {
-  val baseUrl = "https://moviesdrive.solutions"
-  val searchUrl = "$baseUrl/?s=${formattedQuery(query)}"
+  val searchUrl = "$moviesDriveUrl/?s=${formattedQuery(query)}"
 
   return withContext(Dispatchers.IO) {
     try {

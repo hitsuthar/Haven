@@ -1,12 +1,12 @@
 package com.hitsuthar.june.utils.dDLProviders
 
 import android.util.Log
+import com.hitsuthar.june.moviesModUrl
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.screens.MediaContent
 import com.hitsuthar.june.utils.DocumentFetcher
 import com.hitsuthar.june.utils.extractors.getUnblockedGames
 import com.hitsuthar.june.utils.formattedQuery
-import com.hitsuthar.june.utils.moviesModUrl
 import com.hitsuthar.junescrapper.extractors.getDriveSeed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async

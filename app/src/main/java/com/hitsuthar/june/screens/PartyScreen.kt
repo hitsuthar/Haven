@@ -1,6 +1,7 @@
 package com.hitsuthar.june.screens
 
 import MovieSyncViewModel
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,10 +16,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -30,9 +36,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,16 +50,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Typeface
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavController
 import com.hitsuthar.june.SharedPreferencesManager
+import com.hitsuthar.june.utils.EmojiDetector
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
 import com.hitsuthar.june.viewModels.SelectedVideoViewModel
 import com.hitsuthar.june.viewModels.VideoPlayerViewModel
 import com.hitsuthar.june.viewModels.WatchPartyViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun PartyScreen(
   innersPadding: PaddingValues,
@@ -69,9 +83,16 @@ fun PartyScreen(
   val userName = SharedPreferencesManager(context.applicationContext).getData("USER_NAME", "")
 
   val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
-  if (currentRoom != null) {
+  val messages by movieSyncViewModel.messages.collectAsState()
+  var messageText by remember { mutableStateOf("") }
 
-    Column {
+  if (currentRoom != null) {
+    // Start listening for messages
+    LaunchedEffect(currentRoom!!.id) {
+      movieSyncViewModel.listenForMessages(currentRoom!!.id)
+    }
+
+    Column(modifier = Modifier.padding(bottom = innersPadding.calculateBottomPadding())) {
       VideoPlayerScreen(
         modifier = Modifier,
         navController = navController,
@@ -84,58 +105,99 @@ fun PartyScreen(
         contentDetailViewModel = contentDetailViewModel,
         movieSyncViewModel = movieSyncViewModel
       )
-      CurrentRoomCard(innersPadding, room = currentRoom!!, currentUserId = userID, onLeaveRoom = {
+      CurrentRoomCard(room = currentRoom!!, currentUserId = userID, onLeaveRoom = {
         movieSyncViewModel.leaveRoom(
           currentRoom!!.id, userID
         )
       })
+
+      LazyColumn(
+        modifier = Modifier.weight(1f)
+//          .padding(horizontal = 8.dp)
+        , reverseLayout = true
+      ) {
+        itemsIndexed(messages) { index, chatMessage ->
+          ChatMessageBubble(
+            message = chatMessage,
+            isCurrentUser = chatMessage.senderId == userID,
+            isLastCurrentUser = index < messages.lastIndex && messages[index + 1].senderId == chatMessage.senderId,
+            isBeforeUserIsCurrentUser = index > 0 && messages[index - 1].senderId == chatMessage.senderId
+          )
+        }
+
+      }
+
+      OutlinedTextField(
+        value = messageText,
+        onValueChange = { messageText = it },
+        modifier = Modifier
+          .height(48.dp).fillMaxWidth().padding(8.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        placeholder = { Text("Type a message...") },
+        singleLine = true,
+        trailingIcon = {
+          IconButton(
+            onClick = {
+              if (messageText.isNotBlank()) {
+                movieSyncViewModel.sendMessage(currentRoom!!.id, messageText, userID, userName)
+                messageText = ""
+              }
+            }, enabled = messageText.isNotBlank()
+          ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+          }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = MaterialTheme.colorScheme.primary, // Primary color when focused
+          unfocusedBorderColor = MaterialTheme.colorScheme.outline, // Default outline color
+          errorBorderColor = MaterialTheme.colorScheme.error, // Error outline color
+          focusedLabelColor = MaterialTheme.colorScheme.primary, // Label color when focused
+          unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, // Label color when unfocused
+          errorLabelColor = MaterialTheme.colorScheme.error, // Label color in error state
+          cursorColor = MaterialTheme.colorScheme.primary, // Cursor color
+          focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), // Subtle background when focused
+          unfocusedContainerColor = MaterialTheme.colorScheme.surface, // Default background
+          errorContainerColor = MaterialTheme.colorScheme.errorContainer // Background color in error state
+        ),
+        shape = CircleShape,
+
+      )
+
+
     }
   } else {
-    JoinAndCreateRoom(
-      innersPadding = innersPadding,
-      movieSyncViewModel = movieSyncViewModel,
-      userID = userID,
-      userName
-    )
+    movieSyncViewModel.getMyRooms(userID)
+    Column(
+      Modifier.fillMaxSize(),
+      verticalArrangement = Arrangement.Center,
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      JoinAndCreateRoom(
+        innersPadding = innersPadding,
+        movieSyncViewModel = movieSyncViewModel,
+        userID = userID,
+        userName
+      )
+      Column {
+        Text(text = "My Rooms")
+        movieSyncViewModel.myRooms.value.forEach { room ->
+          Text(room.name + " #" + room.roomCode)
+        }
+      }
+    }
   }
-
-
-  // Loading overlay
-//  if (uiState.isLoading) {
-//    Box(
-//      modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-//    ) {
-//      Card {
-//        Box(
-//          modifier = Modifier.padding(24.dp), contentAlignment = Alignment.Center
-//        ) {
-//          Row(
-//            verticalAlignment = Alignment.CenterVertically,
-//            horizontalArrangement = Arrangement.spacedBy(16.dp)
-//          ) {
-//            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-//            Text("Processing...")
-//          }
-//        }
-//      }
-//    }
-//  }
-
 }
 
 
 @Composable
 fun CurrentRoomCard(
-  innersPadding: PaddingValues,
-  room: MovieSyncViewModel.Room,
-  currentUserId: String,
-  onLeaveRoom: () -> Unit
+  room: MovieSyncViewModel.Room, currentUserId: String, onLeaveRoom: () -> Unit
 //  onUpdateStatus: (RoomStatus) -> Unit
 ) {
   val isHost = room.hostId == currentUserId
 
   Column(
-    modifier = Modifier.padding(innersPadding)
+//    modifier = Modifier.padding(innersPadding)
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -195,81 +257,80 @@ fun CurrentRoomCard(
         }
       }
     }
+
   }
 }
 
 
-//@Composable
-//fun RoomCard(
-//  room: Room, currentUserId: String, onJoinRoom: () -> Unit
-//) {
-//  val isInRoom = room.participants.containsKey(currentUserId)
-//  val roomStatus = room.getRoomStatus()
-//
-//  Card(
-//    modifier = Modifier
-//      .fillMaxWidth()
-//      .clickable {
-//        if (!isInRoom) onJoinRoom else {
-//        }
-//      }) {
-//    Column(
-//      modifier = Modifier.padding(16.dp)
-//    ) {
-//      Row(
-//        modifier = Modifier.fillMaxWidth(),
-//        horizontalArrangement = Arrangement.SpaceBetween,
-//        verticalAlignment = Alignment.CenterVertically
-//      ) {
-//        Column(modifier = Modifier.weight(1f)) {
-//          Text(
-//            text = room.name,
-//            style = MaterialTheme.typography.titleMedium,
-//            fontWeight = FontWeight.SemiBold
-//          )
-//          Text(
-//            text = "Movie: ${room.movieTitle}",
-//            style = MaterialTheme.typography.bodyMedium,
-//            color = MaterialTheme.colorScheme.onSurfaceVariant
-//          )
-//        }
-//
-//        Column(horizontalAlignment = Alignment.End) {
-//          Text(
-//            text = "${room.participants.size}/${room.maxParticipants}",
-//            style = MaterialTheme.typography.bodySmall
-//          )
-//
-//        }
-//      }
-//
-//      Spacer(modifier = Modifier.height(8.dp))
-//
-//      Row(
-//        modifier = Modifier.fillMaxWidth(),
-//        horizontalArrangement = Arrangement.SpaceBetween,
-//        verticalAlignment = Alignment.CenterVertically
-//      ) {
-//        Text(
-//          text = "Host: ${room.hostName}",
-//          style = MaterialTheme.typography.bodySmall,
-//          color = MaterialTheme.colorScheme.onSurfaceVariant
-//        )
-//
-//        if (isInRoom) {
-//          AssistChip(
-//            onClick = { },
-//            label = { Text("Joined", style = MaterialTheme.typography.labelSmall) },
-//            colors = AssistChipDefaults.assistChipColors(
-//              containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-//              labelColor = MaterialTheme.colorScheme.primary
-//            )
-//          )
-//        }
-//      }
-//    }
+@Composable
+fun ChatMessageBubble(
+  message: MovieSyncViewModel.ChatMessage,
+  isCurrentUser: Boolean,
+  isLastCurrentUser: Boolean,
+  isBeforeUserIsCurrentUser: Boolean
+) {
+//  val bubbleColor = if (isCurrentUser) {
+//    MaterialTheme.colorScheme.surfaceVariant
+//  } else {
+//    MaterialTheme.colorScheme.surfaceVariant
 //  }
-//}
+
+  val baseStyle = MaterialTheme.typography.bodyMedium
+  val textStyle = remember(message.text) {
+    if (EmojiDetector.isPureEmoji(message.text)) {
+      baseStyle.copy(
+        fontSize = baseStyle.fontSize * 1.5f,  // Bigger for pure emoji
+//        lineHeight = 1.sp   // Adjust line height
+      )
+    } else {
+      baseStyle  // Normal style for mixed content
+    }
+  }
+
+
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 8.dp)
+    //    horizontalAlignment = alignment
+  ) {
+    if (message.type != "system") {
+      if (!isLastCurrentUser) Spacer(modifier = Modifier.height(8.dp))
+      Column {
+        if (!isLastCurrentUser) {
+          Row(
+            horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier
+          ) {
+            Text(
+              text = message.senderName.uppercase(),
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+              text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(message.timestamp),
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Light,
+              color = MaterialTheme.colorScheme.primary
+            )
+          }
+        }
+        Text(
+          text = message.text,
+          color = when {
+//            message.type == "system" -> MaterialTheme.colorScheme.onSurfaceVariant
+            isCurrentUser -> MaterialTheme.colorScheme.onSurfaceVariant
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+          },
+          style = textStyle
+        )
+      }
+    }
+
+
+  }
+}
 
 
 @Composable
@@ -294,26 +355,6 @@ fun ParticipantChip(participant: MovieSyncViewModel.Participant) {
 }
 
 
-//@Composable
-//fun StatusChip(status: RoomStatus) {
-//  val (text, color) = when (status) {
-//    RoomStatus.WAITING -> "Waiting" to MaterialTheme.colorScheme.secondary
-//    RoomStatus.PLAYING -> "Playing" to MaterialTheme.colorScheme.primary
-//    RoomStatus.PAUSED -> "Paused" to MaterialTheme.colorScheme.tertiary
-//    RoomStatus.ENDED -> "Ended" to MaterialTheme.colorScheme.error
-//  }
-//
-//  AssistChip(
-//    onClick = { }, label = {
-//    Text(
-//      text = text, style = MaterialTheme.typography.labelSmall
-//    )
-//  }, colors = AssistChipDefaults.assistChipColors(
-//    containerColor = color.copy(alpha = 0.1f), labelColor = color
-//  )
-//  )
-//}
-
 @Composable
 fun JoinAndCreateRoom(
   innersPadding: PaddingValues,
@@ -325,9 +366,7 @@ fun JoinAndCreateRoom(
   var showJoinDialog by remember { mutableStateOf(false) }
 
   Box(
-    Modifier
-      .padding(innersPadding)
-      .fillMaxSize(), contentAlignment = Alignment.Center
+    Modifier.padding(innersPadding), contentAlignment = Alignment.Center
   ) {
     Column(
       verticalArrangement = Arrangement.spacedBy(4.dp),

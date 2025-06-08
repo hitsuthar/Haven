@@ -272,11 +272,7 @@ fun DDLButton(
           selectedVideo.setSelectedVideo(Stream.DDL(item))
           navController.navigate(route = Screen.VideoPlayer.route)
         } else {
-          movieSyncViewModel.updateCurrentMovie(
-            MovieSyncViewModel.Movie(
-              title = item.name, url = item.url
-            )
-          )
+          movieSyncViewModel.updateCurrentMovie(MovieSyncViewModel.Movie(item.name, item.url))
           navController.navigate(route = Screen.Party.route)
         }
       },

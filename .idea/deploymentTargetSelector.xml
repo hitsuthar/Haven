@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-06-06T20:54:26.953045341Z">
+        <DropdownSelection timestamp="2025-06-07T16:49:43.391825Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=4cfb3a6a" />
@@ -15,12 +15,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Hitesh\.android\avd\hehe.avd" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=4cfb3a6a" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=4cfb3a6a" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Hitesh\.android\avd\hehe.avd" />
               </handle>
             </Target>
           </targets>

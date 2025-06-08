@@ -9,6 +9,7 @@ import com.google.firebase.database.ktx.database
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.hitsuthar.june.utils.SimpleIdGenerator
@@ -33,16 +34,24 @@ class MovieSyncViewModel : ViewModel() {
 
   // Current state
   private val _currentRoom = MutableStateFlow<Room?>(null)
-  val currentRoom: StateFlow<Room?> = _currentRoom.asStateFlow()
+  val currentRoom = _currentRoom.asStateFlow()
 
   private val _currentMovie = MutableStateFlow<Movie?>(null)
-  val currentMovie: StateFlow<Movie?> = _currentMovie.asStateFlow()
+  val currentMovie = _currentMovie.asStateFlow()
 
   private val _syncState = MutableStateFlow<SyncState?>(null)
-  val syncState: StateFlow<SyncState?> = _syncState.asStateFlow()
+  val syncState = _syncState.asStateFlow()
+
+  private val _myRooms = MutableStateFlow(emptyList<Room>())
+  val myRooms = _myRooms.asStateFlow()
+
+  private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
+  val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
+
 
   private var roomListener: ListenerRegistration? = null
   private var syncListener: ValueEventListener? = null
+  private var messagesListener: ListenerRegistration? = null
 
   fun checkAlreadyJoinedRoom(userID: String) {
     viewModelScope.launch {
@@ -111,7 +120,7 @@ class MovieSyncViewModel : ViewModel() {
           roomsCollection.whereEqualTo("roomCode", roomCode).limit(1).get().await()
 
         if (!querySnapshot.isEmpty) {
-          Log.d("FirebaseRoomViewModel", querySnapshot.documents.toString())
+//          Log.d("FirebaseRoomViewModel", querySnapshot.documents.toString())
           val roomDoc = querySnapshot.documents[0]
           val room = roomDoc.toObject(Room::class.java)
 
@@ -208,8 +217,7 @@ class MovieSyncViewModel : ViewModel() {
 
 
     val updates = hashMapOf<String, Any>(
-      "currentTime" to currentTime,
-      "lastUpdated" to ServerValue.TIMESTAMP
+      "currentTime" to currentTime, "lastUpdated" to ServerValue.TIMESTAMP
     )
 
     // Only add playbackState if isPlaying is not null
@@ -225,11 +233,71 @@ class MovieSyncViewModel : ViewModel() {
     val roomId = currentRoom.value?.id ?: return
 
     val userPresence = hashMapOf<String, Any>(
-      "buffering" to isBuffering,
-      "lastSeen" to ServerValue.TIMESTAMP
+      "buffering" to isBuffering, "lastSeen" to ServerValue.TIMESTAMP
     )
 
     syncRef.child("$roomId/users/$userID").updateChildren(userPresence)
+  }
+
+  fun getMyRooms(userID: String) {
+    viewModelScope.launch {
+      try {
+        val querySnapshot = roomsCollection.whereEqualTo("hostId", userID).get().await()
+        val rooms = querySnapshot.documents.mapNotNull { it.toObject(Room::class.java) }
+
+//        Log.d("FirebaseRoomViewModel", "My Rooms: $rooms")
+        _myRooms.value = rooms
+
+      } catch (e: Exception) {
+        Log.e("MovieSync", "Error checking rooms", e)
+      }
+    }
+  }
+
+  fun sendMessage(roomId: String, text: String, userID: String, userName: String) {
+    val message = ChatMessage(
+      text = text,
+      senderId = userID,
+      senderName = userName,
+      timestamp = Date()
+    )
+
+    roomsCollection.document(roomId).collection ("chat")
+      .add(message)
+      .addOnFailureListener { e ->
+        Log.e("Chat", "Error sending message", e)
+      }
+  }
+
+  fun listenForMessages(roomId: String) {
+    messagesListener?.remove()
+    messagesListener = roomsCollection.document(roomId).collection("chat")
+      .orderBy("timestamp", Query.Direction.ASCENDING)
+      .addSnapshotListener { snapshot, error ->
+        error?.let {
+          Log.e("Chat", "Listen failed", it)
+          return@addSnapshotListener
+        }
+        snapshot?.let { querySnapshot ->
+          val messages = querySnapshot.documents.mapNotNull { doc ->
+            doc.toObject(ChatMessage::class.java)?.copy(id = doc.id)
+          }
+          _messages.value = messages.reversed()
+        }
+      }
+  }
+
+  fun sendSystemMessage(roomId: String, text: String) {
+    val message = ChatMessage(
+      text = text,
+      senderId = "system",
+      senderName = "System",
+      timestamp = Date(),
+      type = "system"
+    )
+
+    roomsCollection.document(roomId).collection("chat")
+      .add(message)
   }
 
 
@@ -237,6 +305,9 @@ class MovieSyncViewModel : ViewModel() {
     roomListener?.remove()
     roomListener = null
     _currentRoom.value = null
+    messagesListener?.remove()
+    messagesListener = null
+    _messages.value = emptyList()
     syncListener?.let { syncRef.removeEventListener(it) }
   }
 
@@ -286,5 +357,14 @@ class MovieSyncViewModel : ViewModel() {
 
   data class SyncState(
     val currentTime: Long = 0, val playbackState: String = "paused", val lastUpdated: Long = 0
+  )
+
+  data class ChatMessage(
+    val id: String = "",
+    val text: String = "",
+    val senderId: String = "",
+    val senderName: String = "",
+    val timestamp: Date = Date(),
+    val type: String = "text" // "text" or "system"
   )
 }

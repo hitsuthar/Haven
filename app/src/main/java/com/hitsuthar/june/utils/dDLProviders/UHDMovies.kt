@@ -3,11 +3,11 @@ package com.hitsuthar.june.utils.dDLProviders
 import android.util.Log
 import com.hitsuthar.june.screens.DDLStream
 import com.hitsuthar.june.screens.MediaContent
+import com.hitsuthar.june.uHDMoviesUrl
 import com.hitsuthar.june.utils.DocumentFetcher
 import com.hitsuthar.june.utils.extractors.getDriveLeech
 import com.hitsuthar.june.utils.extractors.getUnblockedGames
 import com.hitsuthar.june.utils.formattedQuery
-import com.hitsuthar.june.utils.uHDMoviesUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

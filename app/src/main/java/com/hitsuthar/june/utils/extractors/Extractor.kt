@@ -1,4 +1,4 @@
-package com.hitsuthar.junescrapper.extractors
+package com.hitsuthar.june.utils.extractors
 
 import android.util.Base64
 import android.util.Log
