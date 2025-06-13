@@ -58,19 +58,21 @@ private suspend fun fetchMovieContent(
         try {
           val document = Jsoup.parse(fetcher.fetchWithRetries(url))
           document.select("div.entry-content > p a.maxbutton-1").map { element ->
-            val link = element.attr("href")
-            val ubGameLink = getUnblockedGames(link, fetcher)
-            if (ubGameLink != null) {
-              if (ubGameLink.contains("driveleech")) {
-                getDriveLeech(ubGameLink, fetcher)?.let { stream ->
-                  synchronized(ddlStreams) {  // Thread-safe addition
-                    Log.d("UHDMovies", "stream: $stream")
-                    ddlStreams.add(stream)
+           async {
+              val link = element.attr("href")
+              val ubGameLink = getUnblockedGames(link, fetcher)
+              if (ubGameLink != null) {
+                if (ubGameLink.contains("driveleech")) {
+                  getDriveLeech(ubGameLink, fetcher)?.let { stream ->
+                    synchronized(ddlStreams) {  // Thread-safe addition
+                      Log.d("UHDMovies", "stream: $stream")
+                      ddlStreams.add(stream)
+                    }
                   }
                 }
               }
             }
-          }
+          }.awaitAll()
         } catch (e: Exception) {
           Log.e("MovieContent", "Error processing movie URL", e)
         }

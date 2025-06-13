@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlin-kapt")
+//    id("kotlin-kapt")
 //    kotlin("jvm") version "2.1.20-RC"
     alias(libs.plugins.google.gms.google.services)
     kotlin("plugin.serialization") version "2.1.21"
@@ -50,6 +50,13 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.material3:material3:1.3.2")
+    implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
+    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.4.0-alpha15")
+    // https://mvnrepository.com/artifact/androidx.compose.material/material-icons-extended
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+
+
     implementation(libs.libvlc.all)
 //    implementation(libs.haze)
 //    implementation(libs.haze.materials)
@@ -71,7 +78,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+//    implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.constraintlayout)

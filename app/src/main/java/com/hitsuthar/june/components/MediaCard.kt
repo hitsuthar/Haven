@@ -1,6 +1,7 @@
 package com.hitsuthar.june.components
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,10 +32,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import app.moviebase.tmdb.image.TmdbImage
 import app.moviebase.tmdb.model.TmdbMediaListItem
 import app.moviebase.tmdb.model.TmdbMovie
 import app.moviebase.tmdb.model.TmdbShow
 import coil.compose.rememberAsyncImagePainter
+import com.hitsuthar.june.BACKDROP_BASE_URL
 import com.hitsuthar.june.POSTER_BASE_URL
 import com.hitsuthar.june.Screen
 import com.hitsuthar.june.utils.TmdbRepository
@@ -46,32 +49,54 @@ fun MediaCard(
   content: TmdbMediaListItem,
   navController: NavController,
   contentDetailViewModel: ContentDetailViewModel,
-  repository: TmdbRepository
+  repository: TmdbRepository,
+  modifier: Modifier = Modifier,
+  showBackDrop: Boolean = false
 ) {
-  val (title, posterPath) = when (content) {
-    is TmdbMovie -> content.title to content.posterPath
-    is TmdbShow -> content.name to content.posterPath
-    else -> "" to ""
+  val (title, posterPath) = if (showBackDrop) {
+    when (content) {
+      is TmdbMovie -> content.title to content.backdropPath
+      is TmdbShow -> content.name to content.backdropPath
+    }
+  } else {
+    when (content) {
+      is TmdbMovie -> content.title to content.posterPath
+      is TmdbShow -> content.name to content.posterPath
+    }
   }
-  ElevatedCard(
-    modifier = Modifier
-      .width(130.dp)
-      .aspectRatio(2 / 3f)
-      .clickable {
-        contentDetailViewModel.setContentDetail(
-          contentId = content.id, contentType = when (content) {
-            is TmdbMovie -> "movie"
-            is TmdbShow -> "tv"
-          }, repository = repository
-        )
-        navController.navigate(
-          Screen.Detail.route
-        )
-      }, shape = RoundedCornerShape(8.dp)
-  ) {
+  Log.d(
+    "MediaCard", if (showBackDrop) {
+      BACKDROP_BASE_URL
+    } else {
+      POSTER_BASE_URL
+    } + posterPath
+  )
+
+  ElevatedCard(modifier = modifier
+    .clickable {
+      contentDetailViewModel.setContentDetail(
+        contentId = content.id, contentType = when (content) {
+          is TmdbMovie -> "movie"
+          is TmdbShow -> "tv"
+        }, repository = repository
+      )
+      navController.navigate(
+        Screen.Detail.route
+      )
+    }
+    .then(
+      if (showBackDrop) Modifier.fillMaxWidth().aspectRatio(16 / 9f)
+      else Modifier.width(160.dp).aspectRatio(2 / 3f)
+    ), shape = RoundedCornerShape(8.dp)) {
     Box(modifier = Modifier.fillMaxSize()) {
       Image(
-        painter = rememberAsyncImagePainter(POSTER_BASE_URL + posterPath),
+        painter = rememberAsyncImagePainter(
+          if (showBackDrop) {
+            BACKDROP_BASE_URL
+          } else {
+            POSTER_BASE_URL
+          } + posterPath
+        ),
         contentDescription = title,
         contentScale = ContentScale.Crop,
 //        modifier = Modifier.aspectRatio(2 / 3f)
@@ -88,16 +113,17 @@ fun MediaCard(
         Box(contentAlignment = Alignment.TopEnd, modifier = Modifier.fillMaxWidth()) {
           Row(
             horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
               .background(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
-                shape = RoundedCornerShape(4.dp)
+                color = MaterialTheme.colorScheme.background.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(8.dp)
               )
               .padding(horizontal = 6.dp, vertical = 2.dp),
           ) {
             Icon(
               Icons.Default.Star,
-              tint = MaterialTheme.colorScheme.onPrimaryContainer,
+              tint = MaterialTheme.colorScheme.onBackground,
               contentDescription = "Rating",
               modifier = Modifier.size(15.dp),
             )
@@ -106,10 +132,9 @@ fun MediaCard(
               text = when (content) {
                 is TmdbMovie -> String.format("%.1f", content.voteAverage)
                 is TmdbShow -> String.format("%.1f", content.voteAverage)
-                else -> ""
               },
-              color = MaterialTheme.colorScheme.onPrimaryContainer,
-              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onBackground,
+              style = if (showBackDrop) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
               fontWeight = FontWeight.SemiBold,
               modifier = Modifier
             )
@@ -118,14 +143,14 @@ fun MediaCard(
         Text(
           modifier = Modifier
             .background(
-              color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
-              shape = RoundedCornerShape(4.dp)
+              color = MaterialTheme.colorScheme.background.copy(alpha = 0.75f),
+              shape = RoundedCornerShape(8.dp)
             )
             .padding(horizontal = 6.dp, vertical = 2.dp),
 
           text = title,
-          color = MaterialTheme.colorScheme.onPrimaryContainer,
-          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onBackground,
+          style = if (showBackDrop) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
           fontWeight = FontWeight.Light
         )
       }

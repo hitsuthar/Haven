@@ -2,6 +2,7 @@ package com.hitsuthar.june
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +45,7 @@ fun BottomNavigationBar(
   AnimatedVisibility(visible = !isFullScreen) {
     Box(modifier = Modifier.padding(horizontal = 16.dp).navigationBarsPadding()){
       NavigationBar(
-        modifier = Modifier.clip(shape = RoundedCornerShape(32.dp))) {
+        modifier = Modifier.clip(shape = RoundedCornerShape(24.dp)).height(72.dp)) {
         items.forEach { item ->
           NavigationBarItem(
             icon = { Icon(imageVector = item.icon, contentDescription = item.name) },

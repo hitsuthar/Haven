@@ -1,4 +1,6 @@
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.DataSnapshot
@@ -13,6 +15,7 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.hitsuthar.june.utils.SimpleIdGenerator
+import com.hitsuthar.june.viewModels.VideoPlayerViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 
-class MovieSyncViewModel : ViewModel() {
+class MovieSyncViewModel(videoPlayerViewModel: VideoPlayerViewModel) : ViewModel() {
 
 
   // Firestore instances
@@ -42,6 +45,9 @@ class MovieSyncViewModel : ViewModel() {
   private val _syncState = MutableStateFlow<SyncState?>(null)
   val syncState = _syncState.asStateFlow()
 
+  private val _userSyncState = MutableStateFlow<List<UserSyncState>>(emptyList())
+  val userSyncState = _userSyncState.asStateFlow()
+
   private val _myRooms = MutableStateFlow(emptyList<Room>())
   val myRooms = _myRooms.asStateFlow()
 
@@ -52,6 +58,8 @@ class MovieSyncViewModel : ViewModel() {
   private var roomListener: ListenerRegistration? = null
   private var syncListener: ValueEventListener? = null
   private var messagesListener: ListenerRegistration? = null
+  private var userPresenceListener: ValueEventListener? = null
+
 
   fun checkAlreadyJoinedRoom(userID: String) {
     viewModelScope.launch {
@@ -64,6 +72,7 @@ class MovieSyncViewModel : ViewModel() {
         if (room != null) {
           startSyncListener(room.id)
           listenToRoom(room.id)
+          listenToUserPresence(room.id)
         }
 
       } catch (e: Exception) {
@@ -103,6 +112,7 @@ class MovieSyncViewModel : ViewModel() {
         if (currentRoom.value != null) {
           listenToRoom(document.id)
           startSyncListener(document.id)
+          listenToUserPresence(document.id)
         }
 
 
@@ -135,6 +145,7 @@ class MovieSyncViewModel : ViewModel() {
             if (currentRoom.value != null) {
               listenToRoom(room.id)
               startSyncListener(room.id)
+              listenToUserPresence(room.id)
             }
           }
 
@@ -177,7 +188,6 @@ class MovieSyncViewModel : ViewModel() {
         Log.e("MovieSync", "Sync listener cancelled", error.toException())
       }
     }
-
     syncRef.child(roomId).addValueEventListener(syncListener!!)
   }
 
@@ -193,6 +203,21 @@ class MovieSyncViewModel : ViewModel() {
       _currentMovie.value = room?.currentMovie
       Log.d("FirebaseROomViewmodel", "currentMovie: ${currentMovie.value}")
     }
+
+    messagesListener?.remove()
+    messagesListener = roomsCollection.document(roomId).collection("chat")
+      .orderBy("timestamp", Query.Direction.ASCENDING).addSnapshotListener { snapshot, error ->
+        error?.let {
+          Log.e("Chat", "Listen failed", it)
+          return@addSnapshotListener
+        }
+        snapshot?.let { querySnapshot ->
+          val messages = querySnapshot.documents.mapNotNull { doc ->
+            doc.toObject(ChatMessage::class.java)?.copy(id = doc.id)
+          }
+          _messages.value = messages.reversed()
+        }
+      }
   }
 
   fun updateCurrentMovie(movie: Movie) {
@@ -212,32 +237,47 @@ class MovieSyncViewModel : ViewModel() {
 
 
   // Update playback state (called from player)
-  fun updatePlaybackState(currentTime: Long, isPlaying: Boolean? = null) {
+  fun updatePlaybackState(currentTime: Long? = null, isPlaying: Boolean? = null) {
     val roomId = currentRoom.value?.id ?: return
-
-
-    val updates = hashMapOf<String, Any>(
-      "currentTime" to currentTime, "lastUpdated" to ServerValue.TIMESTAMP
-    )
-
+    val updates = hashMapOf<String, Any>()
     // Only add playbackState if isPlaying is not null
     isPlaying?.let {
       updates["playbackState"] = if (it) "playing" else "paused"
     }
-
+    currentTime?.let {
+      updates["currentTime"] = it
+    }
     syncRef.child(roomId).updateChildren(updates)
   }
 
   // Update user presence
-  fun updateUserPresence(isBuffering: Boolean, userID: String) {
+  fun setBufferingState(isBuffering: Boolean, userID: String) {
     val roomId = currentRoom.value?.id ?: return
 
     val userPresence = hashMapOf<String, Any>(
-      "buffering" to isBuffering, "lastSeen" to ServerValue.TIMESTAMP
+      "buffering" to isBuffering, "lastSeen" to ServerValue.TIMESTAMP, "userID" to userID
     )
 
     syncRef.child("$roomId/users/$userID").updateChildren(userPresence)
   }
+
+
+  private fun listenToUserPresence(roomId: String) {
+    userPresenceListener?.let { syncRef.child("$roomId/users").removeEventListener(it) }
+    userPresenceListener = object : ValueEventListener {
+      override fun onDataChange(snapshot: DataSnapshot) {
+        _userSyncState.value =
+          snapshot.children.mapNotNull { it.getValue(UserSyncState::class.java) }
+            .filter { it.buffering }
+      }
+
+      override fun onCancelled(error: DatabaseError) {
+        Log.e("MovieSync", "User presence listener cancelled", error.toException())
+      }
+    }
+    syncRef.child("$roomId/users").addValueEventListener(userPresenceListener!!)
+  }
+
 
   fun getMyRooms(userID: String) {
     viewModelScope.launch {
@@ -256,48 +296,38 @@ class MovieSyncViewModel : ViewModel() {
 
   fun sendMessage(roomId: String, text: String, userID: String, userName: String) {
     val message = ChatMessage(
-      text = text,
-      senderId = userID,
-      senderName = userName,
-      timestamp = Date()
+      text = text, senderId = userID, senderName = userName, timestamp = Date()
     )
 
-    roomsCollection.document(roomId).collection ("chat")
-      .add(message)
-      .addOnFailureListener { e ->
-        Log.e("Chat", "Error sending message", e)
-      }
+    roomsCollection.document(roomId).collection("chat").add(message).addOnFailureListener { e ->
+      Log.e("Chat", "Error sending message", e)
+    }
   }
 
-  fun listenForMessages(roomId: String) {
-    messagesListener?.remove()
-    messagesListener = roomsCollection.document(roomId).collection("chat")
-      .orderBy("timestamp", Query.Direction.ASCENDING)
-      .addSnapshotListener { snapshot, error ->
-        error?.let {
-          Log.e("Chat", "Listen failed", it)
-          return@addSnapshotListener
-        }
-        snapshot?.let { querySnapshot ->
-          val messages = querySnapshot.documents.mapNotNull { doc ->
-            doc.toObject(ChatMessage::class.java)?.copy(id = doc.id)
-          }
-          _messages.value = messages.reversed()
-        }
-      }
-  }
+//  fun listenForMessages(roomId: String) {
+//    messagesListener?.remove()
+//    messagesListener = roomsCollection.document(roomId).collection("chat")
+//      .orderBy("timestamp", Query.Direction.ASCENDING)
+//      .addSnapshotListener { snapshot, error ->
+//        error?.let {
+//          Log.e("Chat", "Listen failed", it)
+//          return@addSnapshotListener
+//        }
+//        snapshot?.let { querySnapshot ->
+//          val messages = querySnapshot.documents.mapNotNull { doc ->
+//            doc.toObject(ChatMessage::class.java)?.copy(id = doc.id)
+//          }
+//          _messages.value = messages.reversed()
+//        }
+//      }
+//  }
 
   fun sendSystemMessage(roomId: String, text: String) {
     val message = ChatMessage(
-      text = text,
-      senderId = "system",
-      senderName = "System",
-      timestamp = Date(),
-      type = "system"
+      text = text, senderId = "system", senderName = "System", timestamp = Date(), type = "system"
     )
 
-    roomsCollection.document(roomId).collection("chat")
-      .add(message)
+    roomsCollection.document(roomId).collection("chat").add(message)
   }
 
 
@@ -308,7 +338,10 @@ class MovieSyncViewModel : ViewModel() {
     messagesListener?.remove()
     messagesListener = null
     _messages.value = emptyList()
+    userPresenceListener?.let { syncRef.removeEventListener(it) }
+    userPresenceListener = null
     syncListener?.let { syncRef.removeEventListener(it) }
+    syncListener = null
   }
 
   // Data classes
@@ -356,7 +389,11 @@ class MovieSyncViewModel : ViewModel() {
   }
 
   data class SyncState(
-    val currentTime: Long = 0, val playbackState: String = "paused", val lastUpdated: Long = 0
+    val currentTime: Long = 0, val playbackState: String = "paused", val lastUpdated: Long = 0,
+  )
+
+  data class UserSyncState(
+    val buffering: Boolean = false, val lastSeen: Long = 0, val userID: String = ""
   )
 
   data class ChatMessage(

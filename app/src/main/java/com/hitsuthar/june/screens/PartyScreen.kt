@@ -3,6 +3,8 @@ package com.hitsuthar.june.screens
 import MovieSyncViewModel
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -31,8 +36,11 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,17 +63,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Typeface
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavController
 import com.hitsuthar.june.SharedPreferencesManager
 import com.hitsuthar.june.utils.EmojiDetector
-import com.hitsuthar.june.viewModels.ContentDetailViewModel
-import com.hitsuthar.june.viewModels.SelectedVideoViewModel
 import com.hitsuthar.june.viewModels.VideoPlayerViewModel
-import com.hitsuthar.june.viewModels.WatchPartyViewModel
+import kotlinx.coroutines.delay
+import org.videolan.libvlc.MediaPlayer
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.math.abs
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun PartyScreen(
@@ -73,10 +84,7 @@ fun PartyScreen(
   movieSyncViewModel: MovieSyncViewModel,
   navController: NavController,
   window: WindowInsetsControllerCompat,
-  selectedVideo: SelectedVideoViewModel,
-  watchPartyViewModel: WatchPartyViewModel,
   videoPlayerViewModel: VideoPlayerViewModel,
-  contentDetailViewModel: ContentDetailViewModel
 ) {
 
   val userID = SharedPreferencesManager(context.applicationContext).getData("USER_ID", "")
@@ -86,87 +94,191 @@ fun PartyScreen(
   val messages by movieSyncViewModel.messages.collectAsState()
   var messageText by remember { mutableStateOf("") }
 
-  if (currentRoom != null) {
-    // Start listening for messages
-    LaunchedEffect(currentRoom!!.id) {
-      movieSyncViewModel.listenForMessages(currentRoom!!.id)
+  val videoPlayerUIState by videoPlayerViewModel.uiState.collectAsState()
+  val syncState by movieSyncViewModel.syncState.collectAsState()
+  val currentMovie by movieSyncViewModel.currentMovie.collectAsState()
+  val userSyncState by movieSyncViewModel.userSyncState.collectAsState()
+
+
+  fun updatePlayer(state: MovieSyncViewModel.SyncState) {
+    if (state.playbackState == "playing" && !videoPlayerUIState.isPlaying) {
+      videoPlayerViewModel.play()
+    } else if (state.playbackState == "paused" && videoPlayerUIState.isPlaying) {
+      videoPlayerViewModel.pause()
     }
 
-    Column(modifier = Modifier.padding(bottom = innersPadding.calculateBottomPadding())) {
-      VideoPlayerScreen(
-        modifier = Modifier,
-        navController = navController,
-        window = window,
-        selectedVideo = selectedVideo,
-        watchPartyViewModel = watchPartyViewModel,
-        context = context,
-        innersPadding = innersPadding,
-        videoPlayerViewModel = videoPlayerViewModel,
-        contentDetailViewModel = contentDetailViewModel,
-        movieSyncViewModel = movieSyncViewModel
-      )
-      CurrentRoomCard(room = currentRoom!!, currentUserId = userID, onLeaveRoom = {
-        movieSyncViewModel.leaveRoom(
-          currentRoom!!.id, userID
-        )
-      })
+    // Avoid feedback loops by checking if update came from us
+    videoPlayerUIState.currentDuration?.let { currentDurationValue ->
+      if (abs(currentDurationValue - state.currentTime) > 1000) {
+        videoPlayerViewModel.seekTo(state.currentTime)
+      }
+    } ?: videoPlayerViewModel.seekTo(state.currentTime)
+  }
 
-      LazyColumn(
-        modifier = Modifier.weight(1f)
-//          .padding(horizontal = 8.dp)
-        , reverseLayout = true
-      ) {
-        itemsIndexed(messages) { index, chatMessage ->
-          ChatMessageBubble(
-            message = chatMessage,
-            isCurrentUser = chatMessage.senderId == userID,
-            isLastCurrentUser = index < messages.lastIndex && messages[index + 1].senderId == chatMessage.senderId,
-            isBeforeUserIsCurrentUser = index > 0 && messages[index - 1].senderId == chatMessage.senderId
-          )
-        }
+  if (currentRoom != null) {
 
+    if (!currentMovie?.url.isNullOrBlank()) {
+      LaunchedEffect(currentMovie) {
+        videoPlayerViewModel.loadVideo(currentMovie?.url, currentMovie?.title)
       }
 
-      OutlinedTextField(
-        value = messageText,
-        onValueChange = { messageText = it },
-        modifier = Modifier
-          .height(48.dp).fillMaxWidth().padding(8.dp),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-        placeholder = { Text("Type a message...") },
-        singleLine = true,
-        trailingIcon = {
-          IconButton(
-            onClick = {
-              if (messageText.isNotBlank()) {
-                movieSyncViewModel.sendMessage(currentRoom!!.id, messageText, userID, userName)
-                messageText = ""
-              }
-            }, enabled = messageText.isNotBlank()
-          ) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+      var initialSyncDone by remember { mutableStateOf(false) }
+      LaunchedEffect(Unit, syncState) {
+        syncState?.let {
+          updatePlayer(it)
+          if (!initialSyncDone) {
+            delay(1000L) // Delay initial sync to allow player to load
+            initialSyncDone = true
           }
-        },
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = MaterialTheme.colorScheme.primary, // Primary color when focused
-          unfocusedBorderColor = MaterialTheme.colorScheme.outline, // Default outline color
-          errorBorderColor = MaterialTheme.colorScheme.error, // Error outline color
-          focusedLabelColor = MaterialTheme.colorScheme.primary, // Label color when focused
-          unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, // Label color when unfocused
-          errorLabelColor = MaterialTheme.colorScheme.error, // Label color in error state
-          cursorColor = MaterialTheme.colorScheme.primary, // Cursor color
-          focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), // Subtle background when focused
-          unfocusedContainerColor = MaterialTheme.colorScheme.surface, // Default background
-          errorContainerColor = MaterialTheme.colorScheme.errorContainer // Background color in error state
-        ),
-        shape = CircleShape,
+        }
+      }
+      LaunchedEffect(videoPlayerUIState.isPlaying) {
+        movieSyncViewModel.updatePlaybackState(
+          videoPlayerUIState.currentDuration, videoPlayerUIState.isPlaying
+        )
+      }
 
-      )
+      videoPlayerUIState.currentDuration?.let { currentDuration ->
+        syncState?.currentTime?.let { currentDurationSyncState ->
+          LaunchedEffect(
+            videoPlayerUIState.isPlaying, initialSyncDone, (currentDuration / 1000) % 60
+          ) {
+            if (abs(currentDuration - currentDurationSyncState) > 1000 && initialSyncDone) { // Only update playback state after initial sync
+              movieSyncViewModel.updatePlaybackState(
+                currentDuration, videoPlayerUIState.isPlaying
+              )
+            }
+          }
+        }
+      }
+
+      LaunchedEffect(videoPlayerUIState.isBuffering) {
+        movieSyncViewModel.setBufferingState(videoPlayerUIState.isBuffering, userName)
+      }
+
+      val shouldPauseForOthersBuffering = userSyncState.isNotEmpty()
+
+      // Store the desired state *before* others start buffering
+      var playWhenOthersFinishBuffering by remember(shouldPauseForOthersBuffering) {
+        mutableStateOf(if (shouldPauseForOthersBuffering) videoPlayerUIState.isPlaying else false)
+      }
+
+      LaunchedEffect(shouldPauseForOthersBuffering, playWhenOthersFinishBuffering) {
+        if (shouldPauseForOthersBuffering) {
+          if (videoPlayerUIState.isPlaying) { // Store if we were playing when forced to pause
+            playWhenOthersFinishBuffering = true
+          }
+          videoPlayerViewModel.pause()
+        } else {
+          if (playWhenOthersFinishBuffering) {
+            videoPlayerViewModel.play()
+            playWhenOthersFinishBuffering = false // Reset
+          }
+        }
+      }
+    }
 
 
+
+
+    Column(modifier = Modifier.padding(bottom = innersPadding.calculateBottomPadding())) {
+      Box {
+        VideoPlayerScreen(
+          modifier = Modifier,
+          navController = navController,
+          window = window,
+          context = context,
+          innersPadding = innersPadding,
+          videoPlayerViewModel = videoPlayerViewModel,
+        )
+        if (userSyncState.isNotEmpty()) {
+
+//          CircularWavyProgressIndicator(
+//            progress = { playerState.bufferingProgress / 100f },
+//            modifier = Modifier
+//              .size(52.dp)
+//              .align(Alignment.Center)
+//          )
+          Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = if (videoPlayerUIState.isFullScreen) Modifier.fillMaxSize() else Modifier
+              .fillMaxWidth()
+              .aspectRatio(16 / 9f)
+              .padding(top = innersPadding.calculateTopPadding())
+          ) {
+            LoadingIndicator(
+              modifier = Modifier.size(48.dp)
+            )
+            Text(
+              text = "Buffering for ${userSyncState.joinToString { it.userID }}",
+              style = MaterialTheme.typography.bodySmall
+            )
+          }
+        }
+      }
+      currentRoom?.let { room ->
+        CurrentRoomCard(room = room, currentUserId = userID, onLeaveRoom = {
+          movieSyncViewModel.leaveRoom(room.id, userID)
+        })
+      }
+
+      Column(Modifier.padding(horizontal = 4.dp)) {
+        LazyColumn(
+          modifier = Modifier.weight(1f), reverseLayout = true
+        ) {
+          itemsIndexed(messages) { index, chatMessage ->
+            ChatMessageBubble(
+              message = chatMessage,
+              isCurrentUser = chatMessage.senderId == userID,
+              isLastCurrentUser = index < messages.lastIndex && messages[index + 1].senderId == chatMessage.senderId,
+              isBeforeUserIsCurrentUser = index > 0 && messages[index - 1].senderId == chatMessage.senderId
+            )
+          }
+
+        }
+
+
+        OutlinedTextField(
+          value = messageText,
+          onValueChange = { messageText = it },
+          modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .fillMaxWidth(),
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+          placeholder = { Text("Type a message...") },
+          singleLine = true,
+          trailingIcon = {
+            IconButton(
+              onClick = {
+                if (messageText.isNotBlank()) {
+                  movieSyncViewModel.sendMessage(currentRoom!!.id, messageText, userID, userName)
+                  messageText = ""
+                }
+              }, enabled = messageText.isNotBlank()
+            ) {
+              Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+            }
+          },
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary, // Primary color when focused
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline, // Default outline color
+            errorBorderColor = MaterialTheme.colorScheme.error, // Error outline color
+            focusedLabelColor = MaterialTheme.colorScheme.primary, // Label color when focused
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, // Label color when unfocused
+            errorLabelColor = MaterialTheme.colorScheme.error, // Label color in error state
+            cursorColor = MaterialTheme.colorScheme.primary, // Cursor color
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), // Subtle background when focused
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface, // Default background
+            errorContainerColor = MaterialTheme.colorScheme.errorContainer // Background color in error state
+          ),
+          shape = RoundedCornerShape(24.dp),
+        )
+      }
     }
   } else {
     movieSyncViewModel.getMyRooms(userID)
+    val myRooms by movieSyncViewModel.myRooms.collectAsState()
     Column(
       Modifier.fillMaxSize(),
       verticalArrangement = Arrangement.Center,
@@ -180,7 +292,7 @@ fun PartyScreen(
       )
       Column {
         Text(text = "My Rooms")
-        movieSyncViewModel.myRooms.value.forEach { room ->
+        myRooms.forEach { room ->
           Text(room.name + " #" + room.roomCode)
         }
       }
@@ -196,9 +308,7 @@ fun CurrentRoomCard(
 ) {
   val isHost = room.hostId == currentUserId
 
-  Column(
-//    modifier = Modifier.padding(innersPadding)
-  ) {
+  Column {
     Row(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.SpaceBetween,
@@ -245,12 +355,9 @@ fun CurrentRoomCard(
 
     // Participants list
     if (room.participants.isNotEmpty()) {
-      Spacer(modifier = Modifier.height(8.dp))
       LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        item { }
-
         items(room.participants.values.toList()) { participant ->
 //            Text(participant.toString())
           ParticipantChip(participant)
@@ -317,13 +424,11 @@ fun ChatMessageBubble(
           }
         }
         Text(
-          text = message.text,
-          color = when {
+          text = message.text, color = when {
 //            message.type == "system" -> MaterialTheme.colorScheme.onSurfaceVariant
             isCurrentUser -> MaterialTheme.colorScheme.onSurfaceVariant
             else -> MaterialTheme.colorScheme.onSurfaceVariant
-          },
-          style = textStyle
+          }, style = textStyle
         )
       }
     }
@@ -336,9 +441,9 @@ fun ChatMessageBubble(
 @Composable
 fun ParticipantChip(participant: MovieSyncViewModel.Participant) {
   AssistChip(
-    onClick = { }, label = {
+    modifier = Modifier.height(24.dp), onClick = { }, label = {
       Text(
-        text = participant.userName, style = MaterialTheme.typography.bodySmall
+        text = participant.userName, style = MaterialTheme.typography.bodySmall, modifier = Modifier
       )
     }, leadingIcon = if (participant.isHost) {
       { Icon(Icons.Default.Star, contentDescription = "Host", modifier = Modifier.size(16.dp)) }
@@ -347,8 +452,7 @@ fun ParticipantChip(participant: MovieSyncViewModel.Participant) {
         modifier = Modifier
           .size(8.dp)
           .background(
-            color = if (participant.isOnline) Color.Green else Color.Gray,
-            shape = androidx.compose.foundation.shape.CircleShape
+            color = if (participant.isOnline) Color.Green else Color.Gray, shape = CircleShape
           )
       )
     })

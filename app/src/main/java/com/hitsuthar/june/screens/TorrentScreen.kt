@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +25,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -51,7 +55,6 @@ import app.moviebase.tmdb.model.TmdbMovieDetail
 import app.moviebase.tmdb.model.TmdbShowDetail
 import com.hitsuthar.june.Screen
 import com.hitsuthar.june.components.ErrorMessage
-import com.hitsuthar.june.components.LoadingIndicator
 import com.hitsuthar.june.utils.TorrServerTorrentResponse
 import com.hitsuthar.june.utils.postTorrents
 import com.hitsuthar.june.utils.torrentProviders.TorrentStream
@@ -64,8 +67,6 @@ import com.hitsuthar.june.utils.torrentProviders.getTorrentGalaxy
 import com.hitsuthar.june.utils.torrentProviders.getTorrentio
 import com.hitsuthar.june.viewModels.ContentDetail
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
-import com.hitsuthar.june.viewModels.SelectedVideoViewModel
-import com.hitsuthar.june.viewModels.Stream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import retrofit2.Response
@@ -174,12 +175,11 @@ val providers = listOf(
 )
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TorrentScreen(
     contentDetailViewModel: ContentDetailViewModel,
     navController: NavController,
-    selectedVideo: SelectedVideoViewModel,
     innersPadding: PaddingValues
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -292,11 +292,11 @@ fun TorrentScreen(
             }
         }
         when (val state = torrentResponseState.value) {
-            is TorrentResponseState.Loading -> LoadingIndicator()
+            is TorrentResponseState.Loading -> LoadingIndicator(Modifier.size(50.dp).fillMaxSize().align(Alignment.CenterHorizontally))
             is TorrentResponseState.Success -> {
                 LazyColumn {
                     items(state.data!!) {
-                        TorrentButton(it, navController = navController, selectedVideo)
+                        TorrentButton(it, navController = navController)
                     }
                     item { Spacer(Modifier.height(innersPadding.calculateBottomPadding())) }
                 }
@@ -312,7 +312,6 @@ fun TorrentScreen(
 fun TorrentDialog(
     onDismiss: () -> Unit,
     item: TorrentStream,
-    selectedVideo: SelectedVideoViewModel,
     navController: NavController,
 ) {
     var response by remember { mutableStateOf<TorrServerTorrentResponse?>(null) }
@@ -385,14 +384,14 @@ fun TorrentDialog(
                         if (videoFiles.size == 1) {
                             val singleFile = videoFiles[0]
                             Log.d("magnetlink", "Magnet: ${item.magnet}, File: ${singleFile.path}")
-                            selectedVideo.setSelectedVideo(
-                                video = Stream.Torrent(
-                                    TorrentStream(
-                                        magnet = item.magnet ?: item.infoHash,
-                                        fileIndex = singleFile.id
-                                    )
-                                )
-                            )
+//                            selectedVideo.setSelectedVideo(
+//                                video = Stream.Torrent(
+//                                    TorrentStream(
+//                                        magnet = item.magnet ?: item.infoHash,
+//                                        fileIndex = singleFile.id
+//                                    )
+//                                )
+//                            )
                             navController.navigate(Screen.VideoPlayer.route)
                             onDismiss()
                         }
@@ -401,14 +400,14 @@ fun TorrentDialog(
                                 Button(
                                     onClick = {
                                         Log.d("magnetlink", item.magnet.toString())
-                                        selectedVideo.setSelectedVideo(
-                                            video = Stream.Torrent(
-                                                TorrentStream(
-                                                    magnet = item.magnet ?: item.infoHash,
-                                                    fileIndex = it.id
-                                                )
-                                            )
-                                        )
+//                                        selectedVideo.setSelectedVideo(
+//                                            video = Stream.Torrent(
+//                                                TorrentStream(
+//                                                    magnet = item.magnet ?: item.infoHash,
+//                                                    fileIndex = it.id
+//                                                )
+//                                            )
+//                                        )
                                         navController.navigate(route = Screen.VideoPlayer.route)
                                     },
                                     shape = RoundedCornerShape(8.dp),
@@ -448,14 +447,13 @@ fun TorrentDialog(
 
 @Composable
 fun TorrentButton(
-    item: TorrentStream, navController: NavController, selectedVideo: SelectedVideoViewModel
+    item: TorrentStream, navController: NavController
 ) {
     var showDialog by rememberSaveable { mutableStateOf(false) }
     if (showDialog) {
         TorrentDialog(
             item = item,
             onDismiss = { showDialog = false },
-            selectedVideo = selectedVideo,
             navController = navController
         )
     }
@@ -466,7 +464,7 @@ fun TorrentButton(
                 if (item.fileIndex == null) {
                     showDialog = true
                 } else {
-                    selectedVideo.setSelectedVideo(Stream.Torrent(item))
+//                    selectedVideo.setSelectedVideo(Stream.Torrent(item))
                     navController.navigate(route = Screen.VideoPlayer.route)
                 }
             },

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,8 +24,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -43,22 +46,20 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.hitsuthar.june.Screen
 import com.hitsuthar.june.components.ErrorMessage
-import com.hitsuthar.june.components.LoadingIndicator
 import com.hitsuthar.june.utils.dDLProviders.DDLProviders
 import com.hitsuthar.june.viewModels.DDLState
 import com.hitsuthar.june.viewModels.DDLViewModel
-import com.hitsuthar.june.viewModels.SelectedVideoViewModel
-import com.hitsuthar.june.viewModels.Stream
+import com.hitsuthar.june.viewModels.VideoPlayerViewModel
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DDLScreen(
   navController: NavController,
-  selectedVideo: SelectedVideoViewModel,
   innersPadding: PaddingValues,
   ddlViewModel: DDLViewModel,
   movieSyncViewModel: MovieSyncViewModel,
+  videoPlayerViewModel: VideoPlayerViewModel
 ) {
   var showBottomSheet by rememberSaveable { mutableStateOf(false) }
   val selectedProvider by ddlViewModel.selectedProvider.collectAsState()
@@ -187,8 +188,8 @@ fun DDLScreen(
           DDLButton(
             item = stream,
             navController = navController,
-            selectedVideo = selectedVideo,
-            movieSyncViewModel = movieSyncViewModel
+            movieSyncViewModel = movieSyncViewModel,
+            videoPlayerViewModel = videoPlayerViewModel
           )
         }
         Spacer(Modifier.height(innersPadding.calculateBottomPadding()))
@@ -196,11 +197,17 @@ fun DDLScreen(
 
       selectedProvider != null -> ErrorMessage(message = "No streams found for $selectedProvider")
       ddlState is DDLState.Error -> ErrorMessage(message = (ddlState as DDLState.Error).message)
-      else -> LoadingIndicator()
+      else -> LoadingIndicator(
+        Modifier
+          .size(50.dp)
+          .fillMaxSize()
+          .align(Alignment.CenterHorizontally)
+      )
     }
   }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProviderItem(
   provider: String,
@@ -243,7 +250,13 @@ private fun ProviderItem(
 
       when {
         isSelected -> Icon(Icons.Default.Check, contentDescription = "Selected")
-        isLoading -> CircularProgressIndicator(Modifier.size(20.dp))
+        isLoading -> LoadingIndicator(
+          Modifier
+            .size(32.dp)
+            .fillMaxSize()
+            .align(Alignment.CenterVertically)
+        )
+
         isError -> Icon(
           Icons.Default.Close, contentDescription = "Error", tint = MaterialTheme.colorScheme.error
         )
@@ -259,20 +272,27 @@ private fun ProviderItem(
 fun DDLButton(
   item: DDLStream,
   navController: NavController,
-  selectedVideo: SelectedVideoViewModel,
   movieSyncViewModel: MovieSyncViewModel,
+  videoPlayerViewModel: VideoPlayerViewModel
 
-  ) {
+) {
   val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
 
   Box(Modifier.background(color = MaterialTheme.colorScheme.background)) {
     Button(
       onClick = {
         if (currentRoom == null) {
-          selectedVideo.setSelectedVideo(Stream.DDL(item))
+//          selectedVideo.setSelectedVideo(Stream.DDL(item))
+          videoPlayerViewModel.loadVideo(item.url, item.name)
           navController.navigate(route = Screen.VideoPlayer.route)
         } else {
-          movieSyncViewModel.updateCurrentMovie(MovieSyncViewModel.Movie(item.name, item.url))
+          movieSyncViewModel.updateCurrentMovie(
+            MovieSyncViewModel.Movie(
+              item.name, item.url.replace(
+                oldValue = " ", newValue = "%20"
+              )
+            )
+          )
           navController.navigate(route = Screen.Party.route)
         }
       },
@@ -296,8 +316,9 @@ fun DDLButton(
             append("\n").append("💾").append(item.size)
           }
         },
-        style = TextStyle(
-          color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Light
+        style = MaterialTheme.typography.bodyMedium.copy(
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
+          fontWeight = FontWeight.Light
         ),
         modifier = Modifier.fillMaxWidth(),
       )

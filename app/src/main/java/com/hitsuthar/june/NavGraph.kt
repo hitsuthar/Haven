@@ -3,10 +3,10 @@ package com.hitsuthar.june
 import MovieSyncViewModel
 import android.annotation.SuppressLint
 import android.content.Context
-import android.provider.Settings
-import android.util.Log
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavHostController
@@ -20,16 +20,11 @@ import com.hitsuthar.june.screens.SearchScreen
 import com.hitsuthar.june.screens.SettingsScreen
 import com.hitsuthar.june.screens.TorrentScreen
 import com.hitsuthar.june.screens.VideoPlayerScreen
-import com.hitsuthar.june.utils.SimpleIdGenerator
 import com.hitsuthar.june.utils.TmdbRepository
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
 import com.hitsuthar.june.viewModels.DDLViewModel
-import com.hitsuthar.june.viewModels.SelectedVideoViewModel
+import com.hitsuthar.june.viewModels.HomeScreenViewModel
 import com.hitsuthar.june.viewModels.VideoPlayerViewModel
-import com.hitsuthar.june.viewModels.WatchPartyViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @SuppressLint("CoroutineCreationDuringComposition", "HardwareIds")
 @Composable
@@ -39,43 +34,25 @@ fun SetupNavGraph(
   window: WindowInsetsControllerCompat,
   context: Context,
   innersPadding: PaddingValues,
-  selectedVideoViewModel: SelectedVideoViewModel,
+  homeScreenViewModel: HomeScreenViewModel,
   contentDetailViewModel: ContentDetailViewModel,
-  watchPartyViewModel: WatchPartyViewModel,
   videoPlayerViewModel: VideoPlayerViewModel,
   ddlViewModel: DDLViewModel,
   movieSyncViewModel: MovieSyncViewModel,
   modifier:Modifier = Modifier
 ) {
-  val coroutineScope = CoroutineScope(Dispatchers.IO)
-  val spm = SharedPreferencesManager(context.applicationContext)
 
-
-  val isFirstRun: Boolean = spm.getData("FIRST_RUN_KEY", true)
-  Log.d("isFirstRun", isFirstRun.toString())
-
-  if (isFirstRun) {
-    coroutineScope.launch {
-      spm.saveData(
-        "USER_ID", Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-      )
-      spm.saveData("PARTY_ID", SimpleIdGenerator().generateRandomId())
-      spm.saveData("FIRST_RUN_KEY", false)
-      spm.saveData("USER_NAME", "June")
-    }
-  }
-  val userID = SharedPreferencesManager(context.applicationContext).getData("USER_ID", "")
-  movieSyncViewModel.checkAlreadyJoinedRoom(userID)
+  val currentRoom by movieSyncViewModel.currentRoom.collectAsState()
 
 
   NavHost(
     navController = navController,
-    startDestination = Screen.Home.route,
+    startDestination = if (currentRoom != null) Screen.Party.route else Screen.Home.route,
 //    modifier = modifier
   ) {
     composable(Screen.Home.route) {
       HomeScreen(
-        navController, repository, contentDetailViewModel, innersPadding
+        navController, repository, homeScreenViewModel = homeScreenViewModel , contentDetailViewModel, innersPadding
       )
     }
     composable(route = Screen.Search.route) {
@@ -90,26 +67,25 @@ fun SetupNavGraph(
         navController = navController,
         repository = repository,
         contentDetailViewModel = contentDetailViewModel,
-        selectedVideoViewModel = selectedVideoViewModel,
         ddlViewModel = ddlViewModel,
         innersPadding = innersPadding,
-        movieSyncViewModel = movieSyncViewModel
+        movieSyncViewModel = movieSyncViewModel,
+        videoPlayerViewModel
       )
     }
     composable(Screen.DDL.route) {
       DDLScreen(
         navController = navController,
-        selectedVideo = selectedVideoViewModel,
         innersPadding = innersPadding,
         ddlViewModel = ddlViewModel,
-        movieSyncViewModel = movieSyncViewModel
+        movieSyncViewModel = movieSyncViewModel,
+        videoPlayerViewModel = videoPlayerViewModel
       )
     }
     composable(Screen.Torrent.route) {
       TorrentScreen(
         contentDetailViewModel = contentDetailViewModel,
         navController = navController,
-        selectedVideo = selectedVideoViewModel,
         innersPadding = innersPadding
       )
 
@@ -118,13 +94,9 @@ fun SetupNavGraph(
       VideoPlayerScreen(
         navController = navController,
         window = window,
-        selectedVideo = selectedVideoViewModel,
         context = context,
-        watchPartyViewModel = watchPartyViewModel,
         videoPlayerViewModel = videoPlayerViewModel,
         innersPadding = innersPadding,
-        contentDetailViewModel = contentDetailViewModel,
-        movieSyncViewModel = movieSyncViewModel
       )
     }
     composable(Screen.Settings.route) {
@@ -137,10 +109,7 @@ fun SetupNavGraph(
         movieSyncViewModel = movieSyncViewModel,
         navController = navController,
         window = window,
-        selectedVideo = selectedVideoViewModel,
-        watchPartyViewModel = watchPartyViewModel,
         videoPlayerViewModel = videoPlayerViewModel,
-        contentDetailViewModel = contentDetailViewModel
       )
     }
   }

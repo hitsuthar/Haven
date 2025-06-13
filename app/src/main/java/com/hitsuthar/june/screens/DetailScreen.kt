@@ -19,12 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -61,40 +64,43 @@ import com.hitsuthar.june.BACKDROP_BASE_URL
 import com.hitsuthar.june.LOGO_BASE_URL
 import com.hitsuthar.june.Screen
 import com.hitsuthar.june.components.ErrorMessage
-import com.hitsuthar.june.components.LoadingIndicator
 import com.hitsuthar.june.utils.TmdbRepository
 import com.hitsuthar.june.utils.getFormattedDate
 import com.hitsuthar.june.viewModels.ContentDetail
 import com.hitsuthar.june.viewModels.ContentDetailViewModel
 import com.hitsuthar.june.viewModels.DDLViewModel
-import com.hitsuthar.june.viewModels.SelectedVideoViewModel
+import com.hitsuthar.june.viewModels.VideoPlayerViewModel
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.minutes
 
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DetailScreen(
   navController: NavController,
   repository: TmdbRepository,
   contentDetailViewModel: ContentDetailViewModel,
-  selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
   innersPadding: PaddingValues,
   movieSyncViewModel: MovieSyncViewModel,
+  videoPlayerViewModel: VideoPlayerViewModel,
 
   ) {
   val contentDetail by contentDetailViewModel.contentDetail.collectAsState()
 
   when (contentDetail) {
-    ContentDetail.Loading -> LoadingIndicator()
+    ContentDetail.Loading -> Box(Modifier.fillMaxSize()) {
+      LoadingIndicator(Modifier.size(100.dp).align(Alignment.Center))
+    }
+
     is ContentDetail.Movie -> {
       MovieDetailContent(
         contentDetail as ContentDetail.Movie,
         navController = navController,
-        selectedVideoViewModel = selectedVideoViewModel,
         ddlViewModel = ddlViewModel,
         innersPadding = innersPadding,
-        movieSyncViewModel = movieSyncViewModel
+        movieSyncViewModel = movieSyncViewModel,
+        videoPlayerViewModel = videoPlayerViewModel
       )
       LaunchedEffect(contentDetail) {
         contentDetail.let { ddlViewModel.fetchAllProviders(it) }
@@ -109,7 +115,6 @@ fun DetailScreen(
         contentDetailViewModel = contentDetailViewModel,
         ddlViewModel = ddlViewModel,
         innersPadding = innersPadding
-
       )
     }
 
@@ -125,10 +130,10 @@ fun DetailScreen(
       EpisodeDetailContent(
         contentDetail as ContentDetail.Episode,
         navController = navController,
-        selectedVideoViewModel = selectedVideoViewModel,
         ddlViewModel = ddlViewModel,
         innersPadding = innersPadding,
-        movieSyncViewModel = movieSyncViewModel
+        movieSyncViewModel = movieSyncViewModel,
+        videoPlayerViewModel
       )
     }
 
@@ -140,10 +145,10 @@ fun DetailScreen(
 fun EpisodeDetailContent(
   detail: ContentDetail.Episode,
   navController: NavController,
-  selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
   innersPadding: PaddingValues,
   movieSyncViewModel: MovieSyncViewModel,
+  videoPlayerViewModel: VideoPlayerViewModel,
 
   ) {
   Box(
@@ -164,10 +169,10 @@ fun EpisodeDetailContent(
       item {
         DDLScreen(
           navController = navController,
-          selectedVideo = selectedVideoViewModel,
           innersPadding = PaddingValues(0.dp),
           ddlViewModel = ddlViewModel,
-          movieSyncViewModel = movieSyncViewModel
+          movieSyncViewModel = movieSyncViewModel,
+          videoPlayerViewModel = videoPlayerViewModel
         )
       }
       item {
@@ -211,10 +216,10 @@ data class DDLStream(
 fun MovieDetailContent(
   detail: ContentDetail.Movie,
   navController: NavController,
-  selectedVideoViewModel: SelectedVideoViewModel,
   ddlViewModel: DDLViewModel,
   innersPadding: PaddingValues,
   movieSyncViewModel: MovieSyncViewModel,
+  videoPlayerViewModel: VideoPlayerViewModel,
 
   ) {
   val logo = if (detail.tmdbMovieDetail.images?.logos.isNullOrEmpty()) {
@@ -243,10 +248,10 @@ fun MovieDetailContent(
       item {
         DDLScreen(
           navController = navController,
-          selectedVideo = selectedVideoViewModel,
           innersPadding = PaddingValues(0.dp),
           ddlViewModel = ddlViewModel,
-          movieSyncViewModel = movieSyncViewModel
+          movieSyncViewModel = movieSyncViewModel,
+          videoPlayerViewModel = videoPlayerViewModel
         )
       }
 //            item {
@@ -442,7 +447,9 @@ fun ShowDetailContent(
 @Composable
 fun BackdropSection(detail: ContentDetail, logoImage: TmdbFileImage? = null) {
   Box(
-    Modifier.height((512 + 24).dp)
+    Modifier
+      .fillMaxWidth()
+      .height((500).dp)
   ) {
     Box(
       modifier = Modifier
@@ -609,7 +616,9 @@ fun BottomInfoSection(detail: ContentDetail, logoImage: TmdbFileImage?) {
       if (detail is ContentDetail.Movie) {
         Text(
           detail.tmdbMovieDetail.overview, style = MaterialTheme.typography.bodyMedium.copy(
-            color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Light, textAlign = TextAlign.Center
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Light,
+            textAlign = TextAlign.Center
           ), modifier = Modifier.padding(start = 24.dp, top = 8.dp, end = 24.dp)
         )
       } else if (detail is ContentDetail.Show) {
